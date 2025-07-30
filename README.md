@@ -2,6 +2,9 @@
 
 LLMプロンプトの改善を支援するChrome拡張機能です。
 
+## デモ
+<img src="./docs/demo.gif" alt="Demo GIF showing the plugin in action" width="600">
+
 ## 機能
 - プロンプトフレームワークの管理
 - LLMプロンプトテンプレートの作成・編集・削除
