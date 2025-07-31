@@ -171,10 +171,12 @@ describe('improvePromptWithGemini', () => {
     const sentPrompt = requestBody.contents[0].parts[0].text;
 
     // 送信されたプロンプトに必要な要素が含まれているか確認
-    expect(sentPrompt).toContain('# タスク');
-    expect(sentPrompt).toContain('# LLMプロンプトの具体例');
-    expect(sentPrompt).toContain('# 改善したいプロンプト');
-    expect(sentPrompt).toContain('# フレームワーク情報');
+    expect(sentPrompt).toContain('# 命令(Instruction)');
+    expect(sentPrompt).toContain('# 優れたプロンプトの例 (Good Prompt Example)');
+    expect(sentPrompt).toContain('<example>');
+    expect(sentPrompt).toContain('</example>');
+    expect(sentPrompt).toContain('<user_prompt>');
+    expect(sentPrompt).toContain('<framework>');
     expect(sentPrompt).toContain(userPrompt);
     expect(sentPrompt).toContain(selectedPrompt);
     expect(sentPrompt).toContain(frameworkContent);
