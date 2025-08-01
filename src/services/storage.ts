@@ -115,7 +115,7 @@ export class StorageService {
           displayName: sourceProvider.displayName,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-          models: sourceProvider.models.map((model: any, index: number) => ({
+          models: sourceProvider.models.map((model: ModelData, index: number) => ({
             id: crypto.randomUUID(),
             name: model.name,
             order: index + 1,
@@ -128,7 +128,7 @@ export class StorageService {
         hasChanged = true;
       } else {
         // 既存プロバイダーに新しいモデルがないかチェック
-        const existingModelsMap = new Map<string, any>(existingProvider.models.map(m => [m.name, m]));
+        const existingModelsMap = new Map<string, ModelData>(existingProvider.models.map(m => [m.name, m]));
         for (const sourceModel of sourceProvider.models) {
           if (!existingModelsMap.has(sourceModel.name)) {
             existingProvider.models.push({
