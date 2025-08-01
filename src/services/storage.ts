@@ -1,6 +1,7 @@
 import type { AppData, Framework, Prompt, Provider, DraftData } from '../types';
 import { SecureApiKeyManager } from '../secure-api-key-manager';
 import { providersData } from '../data/llm-providers';
+import { Provider as ProviderData, Model as ModelData } from '../data/types';  
 
 // ストレージキー
 export const STORAGE_KEY = 'nexus/appData';
@@ -74,13 +75,13 @@ export class StorageService {
    * プロバイダー情報をデータから読み込む
    */
   private async loadProviders(): Promise<Provider[]> {
-    return providersData.providers.map((provider: any) => ({
+    return providersData.providers.map((provider: ProviderData) => ({
       id: crypto.randomUUID(),
       name: provider.name,
       displayName: provider.displayName,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      models: provider.models.map((model: any, index: number) => ({
+      models: provider.models.map((model: ModelData, index: number) => ({
         id: crypto.randomUUID(),
         name: model.name,
         order: index + 1,
