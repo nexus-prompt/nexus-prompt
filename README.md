@@ -30,7 +30,7 @@ LLMプロンプトの改善を支援するChrome拡張機能です。
 
 ご意見・ご感想・バグ報告などは、以下のGoogleフォームからお寄せください。
 
-[フィードバックを送信する](https://forms.gle/YOUR_FORM_ID_HERE)
+[フィードバックを送信する](https://docs.google.com/forms/d/1GnBes2W30efxIYPVCICifyJRf6Mm1oFZf9zwV6tXcT8/viewform)
 
 ## 開発者向け情報
 
