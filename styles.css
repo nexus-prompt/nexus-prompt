@@ -70,6 +70,7 @@ div#nexus-prompt {
 
 .left-panel,
 .right-panel {
+  width: 50%;
   flex: 1;
   display: flex;
   flex-direction: column;
