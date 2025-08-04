@@ -51,6 +51,7 @@ export class StorageService {
       // データが存在しない場合（初回インストール）：初期データを作成
       const providers = await this.loadProviders();
       const frameworkId = crypto.randomUUID();
+      const manifest = chrome.runtime.getManifest();
       const defaultData: AppData = {
         providers,
         frameworks: [{
@@ -64,7 +65,7 @@ export class StorageService {
         }],
         settings: {
           defaultFrameworkId: frameworkId,
-          version: '1.0.8' // TODO: manifest.jsonから動的に取得する
+          version: manifest.version
         }
       };
       await this.saveAppData(defaultData);
