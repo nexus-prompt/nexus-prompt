@@ -3,7 +3,7 @@ import type { OpenAIResponse } from '../../types';
 import { OpenAIApiService } from '../../services/openai-api';
 
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch;
 
 describe('OpenAIApiService', () => {
   beforeEach(() => {

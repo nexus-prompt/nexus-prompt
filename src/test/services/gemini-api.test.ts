@@ -3,7 +3,7 @@ import type { GeminiResponse } from '../../types';
 import { GeminiApiService } from '../../services/gemini-api';
 
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch;
 
 describe('GeminiApiService', () => {
   beforeEach(() => {
