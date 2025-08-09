@@ -3,7 +3,7 @@ import type { AnthropicResponse } from '../../types';
 import { AnthropicApiService } from '../../services/anthropic-api';
 
 const mockFetch = vi.fn();
-global.fetch = mockFetch;
+globalThis.fetch = mockFetch;
 
 describe('AnthropicApiService', () => {
   beforeEach(() => {
