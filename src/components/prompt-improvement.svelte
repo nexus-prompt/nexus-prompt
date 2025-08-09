@@ -54,8 +54,7 @@
     const selectedProviderName = selectedOption.getAttribute('data-provider-name') || '';
     const selectedModelName = selectedOption.getAttribute('data-model-name') || '';
 
-    const framework = currentData.frameworks[0];
-    const selectedPrompt = framework.prompts.find(p => p.id === $selectedPromptId);
+    const selectedPrompt = currentData.prompts.find(p => p.id === $selectedPromptId);
 
     if (!selectedPrompt) {
       dispatch('message', { text: '選択されたプロンプトが見つかりません', type: 'error' });
@@ -73,7 +72,7 @@
           modelName: selectedModelName,
           userPrompt: $userPrompt,
           selectedPrompt: selectedPrompt.content,
-          frameworkContent: framework.content
+          frameworkContent: currentData.frameworks[0].content.content
         }
       });
 
@@ -270,9 +269,9 @@
           disabled={isLoading}
           on:input={handleInput}>
           <option value="">選択してください</option>
-          {#each currentData.frameworks[0]?.prompts as prompt}
+          {#each currentData.prompts as prompt}
             <option value={prompt.id}>
-              {prompt.name || prompt.content.substring(0, 30) + '...'}
+              {prompt.content.name || prompt.content.template.substring(0, 30) + '...'}
             </option>
           {/each}
         </select>

@@ -48,8 +48,14 @@ vi.mock('../../secure-api-key-manager', () => ({
 // --- テストデータファクトリ ---
 const createMockPrompt = (overrides: Partial<Prompt> = {}): Prompt => ({
   id: 'prompt1',
-  name: 'テストプロンプト',
-  content: 'テスト内容',
+  content: {
+    version: 2,
+    id: 'prompt1',
+    name: 'テストプロンプト',
+    template: 'テスト内容',
+    variables: [],
+    frameworkRef: 'framework1',
+  },
   order: 1,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
@@ -58,9 +64,14 @@ const createMockPrompt = (overrides: Partial<Prompt> = {}): Prompt => ({
 
 const createMockFramework = (overrides: Partial<Framework> = {}): Framework => ({
   id: 'framework1',
-  name: 'テストフレームワーク',
-  content: 'テスト内容',
-  prompts: [],
+  content: {
+    version: 2,
+    id: 'framework1',
+    name: 'テストフレームワーク',
+    content: 'テスト内容',
+    slug: 'test-framework',
+    metadata: {},
+  },
   order: 1,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
@@ -80,6 +91,7 @@ const createMockProvider = (overrides: Partial<Provider> = {}): Provider => ({
 const createMockAppData = (overrides: Partial<AppData> = {}): AppData => ({
   providers: [createMockProvider()],
   frameworks: [createMockFramework()],
+  prompts: [createMockPrompt()],
   settings: { defaultFrameworkId: 'framework1', version: '1.0.0' },
   ...overrides,
 });
@@ -166,7 +178,7 @@ describe('StorageService', () => {
       expect(result.providers).toHaveLength(1);
       expect(result.providers[0].name).toBe('Gemini');
       expect(result.frameworks).toHaveLength(1);
-      expect(result.frameworks[0].name).toBe('デフォルトフレームワーク');
+      expect(result.frameworks[0].content.name).toBe('デフォルトフレームワーク');
       expect(result).toEqual(savedData);
     });
 
@@ -322,8 +334,8 @@ describe('StorageService', () => {
 
   describe('getDefaultFramework', () => {
     it('settings.defaultFrameworkIdに基づいてデフォルトフレームワークを取得する', async () => {
-      const framework1 = createMockFramework({ id: 'fw1', name: 'フレームワーク1' });
-      const framework2 = createMockFramework({ id: 'fw2', name: 'フレームワーク2' });
+      const framework1 = createMockFramework({ id: 'fw1', content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: 'フレームワーク1', slug: 'test-framework', metadata: {} } });
+      const framework2 = createMockFramework({ id: 'fw2', content: { version: 2, id: 'fw2', name: 'フレームワーク2', content: 'フレームワーク2', slug: 'test-framework', metadata: {} } });
       const testData = createMockAppData({
         frameworks: [framework1, framework2],
         settings: { defaultFrameworkId: 'fw2', version: '1.0.0' },
@@ -349,8 +361,8 @@ describe('StorageService', () => {
     });
 
     it('defaultFrameworkIdが無効な場合、最初のフレームワークにフォールバックする', async () => {
-      const framework1 = createMockFramework({ id: 'fw1', name: 'フレームワーク1' });
-      const framework2 = createMockFramework({ id: 'fw2', name: 'フレームワーク2' });
+      const framework1 = createMockFramework({ id: 'fw1', content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: 'フレームワーク1', slug: 'test-framework', metadata: {} } });
+      const framework2 = createMockFramework({ id: 'fw2', content: { version: 2, id: 'fw2', name: 'フレームワーク2', content: 'フレームワーク2', slug: 'test-framework', metadata: {} } });
       const testData = createMockAppData({
         frameworks: [framework1, framework2],
         settings: { defaultFrameworkId: 'non-existent-id', version: '1.0.0' },
@@ -372,7 +384,7 @@ describe('StorageService', () => {
 
       const updatedFramework: Framework = {
         ...existingFramework,
-        content: '更新された内容'
+        content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: '更新された内容', slug: 'test-framework', metadata: {} }
       };
 
       mockChromeStorage.local.get.mockResolvedValue({ [STORAGE_KEY]: testData });
@@ -414,7 +426,7 @@ describe('StorageService', () => {
   describe('getPrompts', () => {
     it('プロンプトを取得する', async () => {
       const testPrompts = [createMockPrompt()];
-      const testFramework = createMockFramework({ prompts: testPrompts });
+      const testFramework = createMockFramework({ content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: 'フレームワーク1', slug: 'test-framework', metadata: {} } });
       const testData = createMockAppData({
         frameworks: [testFramework],
         settings: { defaultFrameworkId: testFramework.id, version: '1.0.0' },
@@ -445,7 +457,7 @@ describe('StorageService', () => {
   describe('savePrompt', () => {
     it('既存のプロンプトを更新する', async () => {
       const existingPrompt = createMockPrompt({ id: 'p1' });
-      const testFramework = createMockFramework({ prompts: [existingPrompt] });
+      const testFramework = createMockFramework({ content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: 'フレームワーク1', slug: 'test-framework', metadata: {} } });
       const testData = createMockAppData({
         frameworks: [testFramework],
         settings: { defaultFrameworkId: testFramework.id, version: '1.0.0' },
@@ -453,7 +465,7 @@ describe('StorageService', () => {
 
       const updatedPrompt: Prompt = {
         ...existingPrompt,
-        content: '更新された内容'
+        content: { version: 2, id: 'p1', name: 'フレームワーク1', template: '更新された内容', variables: [], slug: 'test-framework', metadata: {} }
       };
 
       mockChromeStorage.local.get.mockResolvedValue({
@@ -466,7 +478,7 @@ describe('StorageService', () => {
       // フレームワークのupdatedAtが更新されることを確認
       const expectedFramework = {
         ...testFramework,
-        prompts: [updatedPrompt],
+        content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: 'フレームワーク1', slug: 'test-framework', metadata: {} },
         updatedAt: expect.any(String)
       };
 
@@ -480,7 +492,7 @@ describe('StorageService', () => {
 
     it('新しいプロンプトを追加する', async () => {
       const existingPrompt = createMockPrompt({ id: 'p1' });
-      const testFramework = createMockFramework({ prompts: [existingPrompt] });
+      const testFramework = createMockFramework({ content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: 'フレームワーク1', slug: 'test-framework', metadata: {} } });
       const testData = createMockAppData({
         frameworks: [testFramework],
         settings: { defaultFrameworkId: testFramework.id, version: '1.0.0' },
@@ -522,9 +534,10 @@ describe('StorageService', () => {
     it('プロンプトを削除する', async () => {
       const prompt1 = createMockPrompt({ id: 'p1' });
       const prompt2 = createMockPrompt({ id: 'p2' });
-      const testFramework = createMockFramework({ prompts: [prompt1, prompt2] });
+      const testFramework = createMockFramework({ content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: 'フレームワーク1', slug: 'test-framework', metadata: {} } });
       const testData = createMockAppData({
         frameworks: [testFramework],
+        prompts: [prompt1, prompt2],
         settings: { defaultFrameworkId: testFramework.id, version: '1.0.0' },
       });
 
@@ -537,7 +550,7 @@ describe('StorageService', () => {
 
       const expectedFramework = {
         ...testFramework,
-        prompts: [prompt2],
+        content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: 'フレームワーク1', slug: 'test-framework', metadata: {} },
         updatedAt: expect.any(String)
       };
 
@@ -551,8 +564,8 @@ describe('StorageService', () => {
 
     it('存在しないpromptIdを渡した場合、データは変更されない', async () => {
       const prompt1 = createMockPrompt({ id: 'p1' });
-      const testFramework = createMockFramework({ prompts: [prompt1] });
-      const testData = createMockAppData({ frameworks: [testFramework] });
+      const testFramework = createMockFramework({ content: { version: 2, id: 'fw1', name: 'フレームワーク1', content: 'フレームワーク1', slug: 'test-framework', metadata: {} } });
+      const testData = createMockAppData({ frameworks: [testFramework], prompts: [prompt1] });
 
       mockChromeStorage.local.get.mockResolvedValue({ [STORAGE_KEY]: testData });
 

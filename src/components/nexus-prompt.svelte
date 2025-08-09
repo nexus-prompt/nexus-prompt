@@ -13,9 +13,10 @@
   const currentData = writable<AppData>({
     providers: [],
     frameworks: [],
+    prompts: [],
     settings: {
       defaultFrameworkId: '',
-      version: '1.0.8'
+      version: '1.1.0'
     },
   });
   const selectedPromptId = writable('');

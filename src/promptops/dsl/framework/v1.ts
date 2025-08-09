@@ -11,7 +11,6 @@ export class FrameworkDslV1 {
     slug: z.string().min(1).optional(),
     name: z.string().min(1),
     content: z.string().default(''),
-    status: z.enum(['active', 'deprecated']).optional().default('active'),
     metadata: z.record(z.unknown()).optional(),
   }).strict();
 

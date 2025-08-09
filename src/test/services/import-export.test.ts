@@ -36,8 +36,14 @@ Object.defineProperty(globalThis, 'crypto', {
 // --- テストデータファクトリ ---
 const createMockPrompt = (overrides: Partial<Prompt> = {}): Prompt => ({
   id: 'prompt1',
-  name: 'テストプロンプト',
-  content: 'テスト内容',
+  content: {
+    version: 2,
+    id: 'prompt1',
+    name: 'テストプロンプト',
+    template: 'テスト内容',
+    variables: [],
+    frameworkRef: 'framework1',
+  },
   order: 1,
   createdAt: '2023-01-01T00:00:00.000Z',
   updatedAt: '2023-01-01T00:00:00.000Z',
@@ -46,9 +52,14 @@ const createMockPrompt = (overrides: Partial<Prompt> = {}): Prompt => ({
 
 const createMockFramework = (overrides: Partial<Framework> = {}): Framework => ({
   id: 'framework1',
-  name: 'テストフレームワーク',
-  content: 'テスト内容',
-  prompts: [createMockPrompt()],
+  content: {
+    version: 2,
+    id: 'framework1',
+    name: 'テストフレームワーク',
+    content: 'テスト内容',
+    slug: 'test-framework',
+    metadata: {},
+  },
   order: 1,
   createdAt: '2023-01-01T00:00:00.000Z',
   updatedAt: '2023-01-01T00:00:00.000Z',
@@ -68,6 +79,7 @@ const createMockProvider = (overrides: Partial<Provider> = {}): Provider => ({
 const createMockAppData = (overrides: Partial<AppData> = {}): AppData => ({
   providers: [createMockProvider()],
   frameworks: [createMockFramework()],
+  prompts: [createMockPrompt()],
   settings: { defaultFrameworkId: 'framework1', version: '1.0.0' },
   ...overrides,
 });
@@ -102,14 +114,11 @@ describe('ImportExportService', () => {
 
   describe('exportData', () => {
     it('フレームワークデータをJSON形式でエクスポートする', async () => {
-      const testFramework = createMockFramework({
-        id: 'original-id',
-        prompts: [
-          createMockPrompt({ id: 'original-prompt-id' }),
-        ],
-      });
+      const testFramework = createMockFramework({ id: 'original-id' });
+      const testPrompt = createMockPrompt({ id: 'original-prompt-id' });
       const testAppData = createMockAppData({
         frameworks: [testFramework],
+        prompts: [testPrompt],
       });
 
       mockGetAppData.mockResolvedValue(testAppData);
@@ -125,12 +134,10 @@ describe('ImportExportService', () => {
           {
             ...testFramework,
             id: '', // IDはクリアされる
-            prompts: [
-              {
-                ...testFramework.prompts[0],
-                id: '', // プロンプトのIDもクリアされる
-              },
-            ],
+            content: {
+              ...testFramework.content,
+              content: testFramework.content.content,
+            },
           },
         ],
         settings: {
@@ -146,16 +153,17 @@ describe('ImportExportService', () => {
       const testFrameworks = [
         createMockFramework({
           id: 'fw1',
-          prompts: [
-            createMockPrompt({ id: 'p1' }),
-            createMockPrompt({ id: 'p2' }),
-          ],
+          content: {
+            ...createMockFramework().content,
+            content: createMockFramework().content.content,
+          },
         }),
         createMockFramework({
           id: 'fw2',
-          prompts: [
-            createMockPrompt({ id: 'p3' }),
-          ],
+          content: {
+            ...createMockFramework().content,
+            content: createMockFramework().content.content,
+          },
         }),
       ];
       const testAppData = createMockAppData({
@@ -168,15 +176,14 @@ describe('ImportExportService', () => {
       const exportedData = JSON.parse(result);
 
       expect(exportedData.frameworks).toHaveLength(2);
-      expect(exportedData.frameworks[0].prompts).toHaveLength(2);
-      expect(exportedData.frameworks[1].prompts).toHaveLength(1);
+      expect(exportedData.prompts).toHaveLength(2);
       
       // すべてのIDがクリアされていることを確認
       exportedData.frameworks.forEach((framework: Framework) => {
         expect(framework.id).toBe('');
-        framework.prompts.forEach((prompt: Prompt) => {
-          expect(prompt.id).toBe('');
-        });
+      });
+      exportedData.prompts.forEach((prompt: Prompt) => {
+        expect(prompt.id).toBe('');
       });
     });
 
@@ -238,15 +245,15 @@ describe('ImportExportService', () => {
 
       // フレームワークデータが置き換えられることを確認
       expect(savedData.frameworks).toHaveLength(1);
-      expect(savedData.frameworks[0].name).toBe('インポートフレームワーク');
+      expect(savedData.frameworks[0].content.name).toBe('インポートフレームワーク');
       expect(savedData.frameworks[0].id).toBe('new-uuid-1'); // 新しいIDが割り当てられる
       expect(savedData.frameworks[0].createdAt).toBe('2023-12-01T00:00:00.000Z');
       expect(savedData.frameworks[0].updatedAt).toBe('2023-12-01T00:00:00.000Z');
 
       // プロンプトにも新しいIDが割り当てられることを確認
-      expect(savedData.frameworks[0].prompts[0].id).toBe('new-uuid-2');
-      expect(savedData.frameworks[0].prompts[0].createdAt).toBe('2023-12-01T00:00:00.000Z');
-      expect(savedData.frameworks[0].prompts[0].updatedAt).toBe('2023-12-01T00:00:00.000Z');
+      expect(savedData.prompts[0].id).toBe('new-uuid-2');
+      expect(savedData.prompts[0].createdAt).toBe('2023-12-01T00:00:00.000Z');
+      expect(savedData.prompts[0].updatedAt).toBe('2023-12-01T00:00:00.000Z');
     });
 
     it('ドラフトデータが存在する場合、selectedPromptIdをクリアする', async () => {
