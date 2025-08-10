@@ -22,7 +22,7 @@
   }>();
 
   onMount(() => {
-    frameworkContent.set(currentData.frameworks[0]?.content || '');
+    frameworkContent.set(currentData.frameworks[0]?.content.content || '');
   });
 
   async function saveFramework(): Promise<void> {
@@ -42,7 +42,14 @@
       const newData = structuredClone(currentData);
 
       if (newData.frameworks[0]) {
-        newData.frameworks[0].content = $frameworkContent;
+        newData.frameworks[0].content = {
+          version: 2,
+          id: newData.frameworks[0].id,
+          name: newData.frameworks[0].content.name,
+          content: $frameworkContent,
+          slug: newData.frameworks[0].content.slug,
+          metadata: newData.frameworks[0].content.metadata
+        };
         newData.frameworks[0].updatedAt = new Date().toISOString();
         
         await storageService.saveAppData(newData);

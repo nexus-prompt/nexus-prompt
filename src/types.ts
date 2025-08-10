@@ -1,7 +1,9 @@
+import type { LatestPromptDsl } from './promptops/dsl/prompt/registry';
+import type { LatestFrameworkDsl } from './promptops/dsl/framework/registry';
+
 export interface Prompt {
   id: string;
-  name: string;
-  content: string;
+  content: LatestPromptDsl;
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -9,9 +11,7 @@ export interface Prompt {
 
 export interface Framework {
   id: string;
-  name: string;
-  content: string;
-  prompts: Prompt[];
+  content: LatestFrameworkDsl;
   order: number;
   createdAt: string;
   updatedAt: string;
@@ -43,6 +43,7 @@ export interface Settings {
 
 export interface AppData {
   providers: Provider[];
+  prompts: Prompt[];
   frameworks: Framework[];
   settings: Settings;
 }

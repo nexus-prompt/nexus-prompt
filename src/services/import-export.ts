@@ -1,4 +1,4 @@
-import type { AppData, Framework } from '../types';
+import type { AppData, Framework, Prompt } from '../types';
 import { storageService, StorageService } from './storage';
 
 export const ImportExportServiceName = 'ImportExportService';
@@ -17,13 +17,14 @@ export class ImportExportService {
 
     appData.frameworks.forEach((framework) => {
       framework.id = '';
-      framework.prompts.forEach((prompt) => {
-        prompt.id = '';
-      });
+    });
+    appData.prompts.forEach((prompt) => {
+      prompt.id = '';
     });
     const dataToExport: AppData = {
       providers: [],
       frameworks: appData.frameworks,
+      prompts: appData.prompts,
       settings: {
         defaultFrameworkId: '',
         version: '',
@@ -57,8 +58,10 @@ export class ImportExportService {
       typeof parsedJson !== 'object' ||
       parsedJson === null ||
       !('frameworks' in parsedJson) ||
-      !Array.isArray((parsedJson as { frameworks: unknown }).frameworks)
-    ) {
+      !('prompts' in parsedJson) ||
+      !Array.isArray((parsedJson as { frameworks: unknown }).frameworks) ||
+      !Array.isArray((parsedJson as { prompts: unknown }).prompts)
+      ) {
       throw new Error('インポートデータはフレームワークの配列を含む正しい形式である必要があります。');
     }
 
@@ -67,17 +70,19 @@ export class ImportExportService {
       framework.id = crypto.randomUUID();
       framework.createdAt = new Date().toISOString();
       framework.updatedAt = new Date().toISOString();
-      framework.prompts.forEach((prompt) => {
-        prompt.id = crypto.randomUUID();
-        prompt.createdAt = new Date().toISOString();
-        prompt.updatedAt = new Date().toISOString();
-      });
+    });
+    const importedPrompts = (parsedJson  as { prompts: Prompt[] }).prompts;
+    importedPrompts.forEach((prompt) => {
+      prompt.id = crypto.randomUUID();
+      prompt.createdAt = new Date().toISOString();
+      prompt.updatedAt = new Date().toISOString();
     });
     const currentAppData = await this.storage.getAppData();
 
     const newAppData: AppData = {
       ...currentAppData,
       frameworks: importedFrameworks,
+      prompts: importedPrompts,
     };
 
     await this.storage.saveAppData(newAppData);

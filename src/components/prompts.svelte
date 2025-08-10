@@ -28,17 +28,17 @@
   }>();
 
   // Reactive: プロンプトリスト
-  $: promptList = currentData.frameworks[0]?.prompts || [];
+  $: promptList = currentData.prompts || [];
 
   function openPromptModal(promptId: string | null = null): void {
     editingPromptId = promptId;
     
     if (promptId) {
-      const prompt = currentData.frameworks[0]?.prompts.find(p => p.id === promptId);
+      const prompt = currentData.prompts.find(p => p.id === promptId);
       if (prompt) {
         modalTitle = 'LLMプロンプト編集';
-        promptName.set(prompt.name || '');
-        promptContent.set(prompt.content || '');
+        promptName.set(prompt.content.name || '');
+        promptContent.set(prompt.content.template || '');
       }
     } else {
       modalTitle = 'LLMプロンプト新規作成';
@@ -55,24 +55,20 @@
         deletingIds = new Set([...deletingIds, promptId]);
         // イミュータブルな更新
         const newData = structuredClone(currentData);
-        const framework = newData.frameworks[0];
-        if (!framework) return;
         
         // 削除対象のプロンプトのorderを取得
-        const deletedPrompt = framework.prompts.find(p => p.id === promptId);
+        const deletedPrompt = newData.prompts.find(p => p.id === promptId);
         const deletedOrder = deletedPrompt?.order || 0;
         
         // プロンプトを削除
-        framework.prompts = framework.prompts.filter(p => p.id !== promptId);
+        newData.prompts = newData.prompts.filter(p => p.id !== promptId);
         
         // 削除されたorder以降のプロンプトのorderを-1する
-        framework.prompts.forEach(prompt => {
+        newData.prompts.forEach(prompt => {
           if (prompt.order > deletedOrder && prompt.order > 1) {
             prompt.order -= 1;
           }
         });
-        
-        framework.updatedAt = new Date().toISOString();
         
         await storageService.saveAppData(newData);
         
@@ -108,29 +104,42 @@
       isSaving = true;
       // イミュータブルな更新
       const newData = structuredClone(currentData);
-      const framework = newData.frameworks[0];
-      if (!framework) return;
       
       if (editingPromptId) {
-        const prompt = framework.prompts.find(p => p.id === editingPromptId);
+        const prompt = newData.prompts.find(p => p.id === editingPromptId);
         if (prompt) {
-          prompt.name = $promptName || 'プロンプト';
-          prompt.content = $promptContent;
+          prompt.content = {
+            version: 2,
+            id: prompt.id,
+            name: $promptName || 'プロンプト',
+            template: $promptContent,
+            variables: [],
+            slug: prompt.content.slug,
+            model: prompt.content.model,
+            metadata: prompt.content.metadata,
+            frameworkRef: prompt.content.frameworkRef
+          };
           prompt.updatedAt = new Date().toISOString();
         }
       } else {
+        const id = crypto.randomUUID();
         const newPrompt: Prompt = {
-          id: crypto.randomUUID(),
-          name: $promptName || 'プロンプト',
-          content: $promptContent,
-          order: framework.prompts.length + 1,
+          id: id,
+          content: {
+            version: 2,
+            id: id,
+            name: $promptName || 'プロンプト',
+            template: $promptContent,
+            variables: [],
+            frameworkRef: currentData.settings.defaultFrameworkId
+          },
+          order: newData.prompts.length + 1,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         };
-        framework.prompts.push(newPrompt);
+        newData.prompts.push(newPrompt);
       }
 
-      framework.updatedAt = new Date().toISOString();
       await storageService.saveAppData(newData);
       
       dispatch('promptSelectionReset');
@@ -162,8 +171,8 @@
     {#each promptList as prompt}
     <div class="prompt-item" data-testid="prompt-item">
       <div class="prompt-info">
-        <h4>{prompt.name || 'プロンプト'}</h4>
-        <p>{prompt.content.substring(0, 50)}...</p>
+        <h4>{prompt.content.name || 'プロンプト'}</h4>
+        <p>{prompt.content.template.substring(0, 50)}...</p>
       </div>
       <div class="prompt-actions">
         <button class="edit-button" on:click={() => openPromptModal(prompt.id)} disabled={deletingIds.has(prompt.id)}>編集</button>

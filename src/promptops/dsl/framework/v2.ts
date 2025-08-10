@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { FrameworkSchema } from './schema';
+import { Slug, type FrameworkSchema } from './schema';
 import { FrameworkDslV1 } from './v1';
 
 // Framework DSL v2
@@ -9,10 +9,9 @@ export class FrameworkDslV2 {
   static Schema = z.object({
     version: z.literal(2),
     id: z.string().uuid(),
-    slug: z.string().min(1).optional(),
+    slug: Slug.optional(),
     name: z.string().min(1),
     content: z.string().default(''),
-    status: z.enum(['active', 'deprecated']).optional().default('active'),
     metadata: z.record(z.unknown()).optional(),
   }).strict();
 

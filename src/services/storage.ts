@@ -53,18 +53,23 @@ export class StorageService {
       const frameworkId = crypto.randomUUID();
       const defaultData: AppData = {
         providers,
+        prompts: [],
         frameworks: [{
           id: frameworkId,
-          name: 'デフォルトフレームワーク',
-          content: '',
-          prompts: [],
+          content: {
+            version: 2,
+            id: frameworkId,
+            slug: 'default-framework',
+            name: 'デフォルトフレームワーク',
+            content: '',
+          },
           order: 1,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
         }],
         settings: {
           defaultFrameworkId: frameworkId,
-          version: '1.0.8' // TODO: manifest.jsonから動的に取得する
+          version: '1.1.0' // TODO: manifest.jsonから動的に取得する
         }
       };
       await this.saveAppData(defaultData);
@@ -180,58 +185,56 @@ export class StorageService {
   }
 
   /**
-   * フレームワークを保存
+   * プロンプトを取得
    */
-  async saveFramework(framework: Framework): Promise<void> {
+  async getPrompts(): Promise<Prompt[]> {
     const data = await this.getAppData();
-    const index = data.frameworks.findIndex(f => f.id === framework.id);
-    
+    return data.prompts || [];
+  }
+
+  /**
+   * 指定されたコレクションにアイテムを保存（更新または追加）する共通メソッド
+   * @param collectionName 保存先のコレクション名 ('frameworks' または 'prompts')
+   * @param item 保存するアイテム（idプロパティを持つ必要がある）
+   */
+  private async saveItem<T extends { id: string }>(
+    collectionName: 'frameworks' | 'prompts',
+    item: T
+  ): Promise<void> {
+    const data = await this.getAppData();
+    const collection = data[collectionName] as unknown as T[];
+    const index = collection.findIndex(i => i.id === item.id);
+
     if (index !== -1) {
-      data.frameworks[index] = framework;
+      collection[index] = item;
     } else {
-      data.frameworks.push(framework);
+      collection.push(item);
     }
-    
+
     await this.saveAppData(data);
   }
 
   /**
-   * プロンプトを取得
+   * フレームワークを保存
    */
-  async getPrompts(): Promise<Prompt[]> {
-    const framework = await this.getDefaultFramework();
-    return framework?.prompts || [];
+  async saveFramework(framework: Framework): Promise<void> {
+    await this.saveItem('frameworks', framework);
   }
 
   /**
    * プロンプトを保存
    */
   async savePrompt(prompt: Prompt): Promise<void> {
-    const framework = await this.getDefaultFramework();
-    if (!framework) return;
-    
-    const index = framework.prompts.findIndex(p => p.id === prompt.id);
-    
-    if (index !== -1) {
-      framework.prompts[index] = prompt;
-    } else {
-      framework.prompts.push(prompt);
-    }
-    
-    framework.updatedAt = new Date().toISOString();
-    await this.saveFramework(framework);
+    await this.saveItem('prompts', prompt);
   }
 
   /**
    * プロンプトを削除
    */
   async deletePrompt(promptId: string): Promise<void> {
-    const framework = await this.getDefaultFramework();
-    if (!framework) return;
-    
-    framework.prompts = framework.prompts.filter(p => p.id !== promptId);
-    framework.updatedAt = new Date().toISOString();
-    await this.saveFramework(framework);
+    const data = await this.getAppData();
+    data.prompts = data.prompts.filter(p => p.id !== promptId);
+    await this.saveAppData(data);
   }
 
   /**

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { PromptSchema } from './schema';
+import { Slug, type PromptSchema, EnumGroups, Labels, Test } from './schema';
 
 // Prompt DSL v1 クラス化（v2と同様のインターフェイス: Version/Schema/parse）
 export class PromptDslV1 {
@@ -8,24 +8,32 @@ export class PromptDslV1 {
   static Model = z.object({
     provider: z.string().min(1),
     name: z.string().min(1),
+    params: z.record(z.unknown()).optional(),
   }).strict();
 
-  static Variable = z.object({
+  static Input = z.object({
     name: z.string().min(1),
+    type: z.enum(['string', 'number', 'boolean', 'array', 'object']),
     required: z.boolean().optional().default(false),
+    ref: z.string().optional(), // enumグループ名等に参照する場合
     description: z.string().optional(),
-    default: z.string().optional(),
+    default: z.unknown().optional(),
   }).strict();
 
   static Schema = z.object({
-    version: z.literal(1),
+    version: z.literal(PromptDslV1.Version),
     id: z.string().uuid(),
-    slug: z.string().min(1).optional(),
     name: z.string().min(1),
+    slug: Slug.optional(),
     template: z.string().min(1),
-    variables: z.array(PromptDslV1.Variable).optional().default([]),
+    inputs: z.array(PromptDslV1.Input).optional().default([]),
     model: PromptDslV1.Model.optional(),
+    enums: EnumGroups.optional(),
+    labels: Labels.optional(),
     metadata: z.record(z.unknown()).optional(),
+    tests: z.array(Test).optional(),
+    context: z.record(z.unknown()).optional(),
+    policies: z.record(z.unknown()).optional(),
     frameworkRef: z.string().optional(),
   }).strict();
 
