@@ -35,7 +35,7 @@ export class PromptDslV2 {
     context: z.record(z.unknown()).optional(),
     policies: z.record(z.unknown()).optional(),
     frameworkRef: z.string().optional(),
-  }).strict();
+  }).strip();
 
   static parse(input: unknown) {
     let obj = input as PromptSchema;

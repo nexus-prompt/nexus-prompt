@@ -8,6 +8,7 @@ test.describe('フレームワーク管理テスト', () => {
       await chrome.storage.local.clear();
     });
   });
+  const frameworkId = crypto.randomUUID();
 
   const testData: AppData = {
     prompts: [],
@@ -33,10 +34,10 @@ test.describe('フレームワーク管理テスト', () => {
     ],
     frameworks: [
       {
-        id: 'test-framework-id',
+        id: frameworkId,
         content: {
           version: 2,
-          id: 'test-framework-id',
+          id: frameworkId,
           name: 'テストフレームワーク',
           content: '元のフレームワーク内容\n\n# 条件\n- テスト条件1\n- テスト条件2',
           slug: 'test-framework',

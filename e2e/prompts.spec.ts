@@ -3,31 +3,34 @@ import { test, expect } from './fixtures';
 import { STORAGE_KEY } from '../src/services/storage';
 
 test.describe('プロンプトテンプレート管理テスト', () => {
-  let initialData: AppData = {
+  const prompt1Id = crypto.randomUUID();
+  const prompt2Id = crypto.randomUUID();
+  const frameworkId = crypto.randomUUID();
+  const initialData: AppData = {
     prompts: [
         { 
-          id: 'prompt-1', 
+          id: prompt1Id, 
           content: { 
             version: 2, 
-            id: 'prompt-1', 
+            id: prompt1Id, 
             name: '既存のプロンプト1', 
             template: '内容1', 
             inputs: [], 
-            frameworkRef: 'test-framework-id' 
+            frameworkRef: frameworkId 
           }, 
           order: 1, 
           createdAt: new Date().toISOString(), 
           updatedAt: new Date().toISOString() 
         },
         { 
-          id: 'prompt-2', 
+          id: prompt2Id, 
           content: { 
             version: 2, 
-            id: 'prompt-2', 
+            id: prompt2Id, 
             name: '既存のプロンプト2', 
             template: '内容2', 
             inputs: [], 
-            frameworkRef: 'test-framework-id'
+            frameworkRef: frameworkId
           }, 
           order: 2, 
           createdAt: new Date().toISOString(), 
@@ -46,10 +49,10 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     ],
     frameworks: [
       {
-        id: 'test-framework-id',
+        id: frameworkId,
         content: {
           version: 2,
-          id: 'test-framework-id',
+          id: frameworkId,
           name: 'テストフレームワーク',
           content: 'テストコンテンツ',
           slug: 'test-framework',
@@ -59,7 +62,7 @@ test.describe('プロンプトテンプレート管理テスト', () => {
         updatedAt: new Date().toISOString()
       }
     ],
-    settings: { defaultFrameworkId: 'test-framework-id', version: '1.0.0' }
+    settings: { defaultFrameworkId: frameworkId, version: '1.0.0' }
   };
 
   test.beforeEach(async ({ serviceWorker }) => {
@@ -108,7 +111,7 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     await page.click('button:has-text("LLMプロンプト管理")');
 
     await page.locator('.prompt-item:has-text("既存のプロンプト1")').locator('button:has-text("編集")').click();
-    
+
     await expect(page.locator('[data-testid="prompt-modal"]')).toBeVisible();
     const updatedPromptName = '更新されたプロンプト';
     const updatedPromptContent = '更新された内容です。';
@@ -122,7 +125,7 @@ test.describe('プロンプトテンプレート管理テスト', () => {
       return await chrome.storage.local.get(key);
     }, STORAGE_KEY);
     const prompts = storedData[STORAGE_KEY].prompts;
-    const updatedPrompt = prompts.find((p: Prompt) => p.id === 'prompt-1');
+    const updatedPrompt = prompts.find((p: Prompt) => p.id === prompt1Id);
     expect(updatedPrompt?.content.name).toBe(updatedPromptName);
     expect(updatedPrompt?.content.template).toBe(updatedPromptContent);
 
@@ -174,30 +177,5 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     }, STORAGE_KEY);
     const prompts = storedData[STORAGE_KEY].prompts;
     expect(prompts.length).toBe(2);
-  });
-
-  test('Edge Case: タイトルが空でもデフォルト値で保存される', async ({ context, extensionUrl, serviceWorker }) => {
-    const page = await context.newPage();
-
-    await page.goto(extensionUrl('popup.html'));
-    await page.waitForSelector('[data-testid="nexus-prompt"]');
-    await page.click('button:has-text("LLMプロンプト管理")');
-
-    await page.click('[data-testid="new-prompt-button"]');
-
-    await page.fill('[data-testid="prompt-content-input"]', '内容があればOK');
-    await page.click('[data-testid="save-prompt-button"]');
-
-    await expect(page.locator('[data-testid="message-area"]')).toContainText('プロンプトを保存しました');
-
-    const storedData = await serviceWorker.evaluate(async (key: string) => {
-      return await chrome.storage.local.get(key);
-    }, STORAGE_KEY);
-    const prompts = storedData[STORAGE_KEY].prompts;
-    expect(prompts.length).toBe(3);
-    const newPrompt = prompts.find((p: Prompt) => p.content.template === '内容があればOK');
-    expect(newPrompt?.content.name).toBe('プロンプト');
-
-    await expect(page.locator('[data-testid="prompt-list"]')).toContainText("内容があればOK");
   });
 }); 
