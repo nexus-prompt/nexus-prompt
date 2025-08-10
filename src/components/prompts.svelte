@@ -107,7 +107,12 @@
       return;
     }
 
-    if ($promptViewModel.name.length > MAX_PROMPT_NAME_LENGTH) {
+    if (!($promptViewModel.name && $promptViewModel.name.trim())) {
+      dispatch('message', { text: `プロンプト名を入力してください`, type: 'error' });
+      return;
+    }
+
+    if ($promptViewModel.name && $promptViewModel.name.length > MAX_PROMPT_NAME_LENGTH) {
       dispatch('message', { text: `プロンプト名は${MAX_PROMPT_NAME_LENGTH}文字以内で入力してください`, type: 'error' });
       return;
     }
@@ -173,7 +178,7 @@
     {#each promptList as prompt}
     <div class="prompt-item" data-testid="prompt-item">
       <div class="prompt-info">
-        <h4>{prompt.content.name || 'プロンプト'}</h4>
+        <h4>{prompt.content.name}</h4>
         <p>{prompt.content.template.substring(0, 50)}...</p>
       </div>
       <div class="prompt-actions">

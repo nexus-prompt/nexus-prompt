@@ -15,7 +15,7 @@ export interface PromptFieldView {
 
 export interface PromptViewModel {
   id: string;
-  name?: string;
+  name: string;
   slug?: string;
   template: string;
   fields: PromptFieldView[];

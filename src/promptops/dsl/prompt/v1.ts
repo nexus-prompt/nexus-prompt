@@ -23,7 +23,7 @@ export class PromptDslV1 {
   static Schema = z.object({
     version: z.literal(PromptDslV1.Version),
     id: z.string().uuid(),
-    name: z.string().optional(),
+    name: z.string().min(1),
     slug: Slug.optional(),
     template: z.string().min(1),
     inputs: z.array(PromptDslV1.Input).optional().default([]),
