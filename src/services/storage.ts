@@ -233,8 +233,13 @@ export class StorageService {
    */
   async deletePrompt(promptId: string): Promise<void> {
     const data = await this.getAppData();
-    data.prompts = data.prompts.filter(p => p.id !== promptId);
-    await this.saveAppData(data);
+    const beforeLength = data.prompts.length;
+    const filtered = data.prompts.filter(p => p.id !== promptId);
+    // 削除対象が存在する場合のみ保存を実行
+    if (filtered.length !== beforeLength) {
+      data.prompts = filtered;
+      await this.saveAppData(data);
+    }
   }
 
   /**
