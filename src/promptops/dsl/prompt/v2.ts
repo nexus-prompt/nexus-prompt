@@ -23,7 +23,7 @@ export class PromptDslV2 {
   static Schema = z.object({
     version: z.literal(PromptDslV2.Version),
     id: z.string().uuid(),
-    name: z.string().min(1),
+    name: z.string().optional(),
     slug: Slug.optional(),
     template: z.string().min(1),
     inputs: z.array(PromptDslV2.Input).optional().default([]),
@@ -35,7 +35,7 @@ export class PromptDslV2 {
     context: z.record(z.unknown()).optional(),
     policies: z.record(z.unknown()).optional(),
     frameworkRef: z.string().optional(),
-  }).strict();
+  }).strip();
 
   static parse(input: unknown) {
     let obj = input as PromptSchema;

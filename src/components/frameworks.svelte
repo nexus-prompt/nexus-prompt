@@ -3,12 +3,18 @@
   import { storageService } from '../services/storage';
   import { createEventDispatcher, onMount } from 'svelte';
   import { writable } from 'svelte/store';
-
+  import { FrameworkViewModel, createFrameworkViewModel, toFrameworkDsl } from '../promptops/dsl/framework/renderer';
+  
   // Props
   export let currentData: AppData;
 
   // Local state
-  const frameworkContent = writable('');
+  const frameworkViewModel = writable<FrameworkViewModel>({
+    id: '',
+    name: '',
+    content: '',
+    metadata: {}
+  });
   let isLoading: boolean = false;
   
   // Constants
@@ -22,34 +28,32 @@
   }>();
 
   onMount(() => {
-    frameworkContent.set(currentData.frameworks[0]?.content.content || '');
+    console.log('currentData.frameworks[0]?.content', currentData.frameworks[0]?.content);
+    const vm = createFrameworkViewModel(currentData.frameworks[0]?.content);
+    frameworkViewModel.set(vm);
   });
 
   async function saveFramework(): Promise<void> {
-    if (!$frameworkContent.trim()) {
+    if (!$frameworkViewModel.content.trim()) {
       dispatch('message', { text: 'フレームワーク内容を入力してください', type: 'error' });
       return;
     }
 
-    if ($frameworkContent.length > MAX_FRAMEWORK_CONTENT_LENGTH) {
+    if ($frameworkViewModel.content.length > MAX_FRAMEWORK_CONTENT_LENGTH) {
       dispatch('message', { text: `フレームワーク内容は${MAX_FRAMEWORK_CONTENT_LENGTH.toLocaleString()}文字以内で入力してください`, type: 'error' });
       return;
     }
 
     try {
       isLoading = true;
+
+      const fw = toFrameworkDsl($frameworkViewModel);
+
        // イミュータブルな更新
       const newData = structuredClone(currentData);
 
       if (newData.frameworks[0]) {
-        newData.frameworks[0].content = {
-          version: 2,
-          id: newData.frameworks[0].id,
-          name: newData.frameworks[0].content.name,
-          content: $frameworkContent,
-          slug: newData.frameworks[0].content.slug,
-          metadata: newData.frameworks[0].content.metadata
-        };
+        newData.frameworks[0].content = fw;
         newData.frameworks[0].updatedAt = new Date().toISOString();
         
         await storageService.saveAppData(newData);
@@ -72,7 +76,7 @@
     <label for="frameworkContent">プロンプト生成フレームワーク</label>
     <textarea 
       id="frameworkContent"
-      bind:value={$frameworkContent}
+      bind:value={$frameworkViewModel.content}
       disabled={isLoading}
       rows="22" 
       data-testid="framework-content-input"

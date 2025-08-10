@@ -3,13 +3,20 @@
   import { storageService } from '../services/storage';
   import { createEventDispatcher } from 'svelte';
   import { writable } from 'svelte/store';
-
+  import { PromptViewModel, createPromptViewModel, toPromptDsl } from '../promptops/dsl/prompt/renderer';
+  
   // Props
   export let currentData: AppData;
 
   // Local state
-  const promptName = writable('');
-  const promptContent = writable('');
+  const promptViewModel = writable<PromptViewModel>({
+    id: '',
+    name: '',
+    template: '',
+    fields: [],
+    frameworkRef: '',
+    metadata: {},
+  });
   let showModal: boolean = false;
   let modalTitle: string = 'LLMプロンプト編集';
   let editingPromptId: string | null = null;
@@ -36,14 +43,19 @@
     if (promptId) {
       const prompt = currentData.prompts.find(p => p.id === promptId);
       if (prompt) {
-        modalTitle = 'LLMプロンプト編集';
-        promptName.set(prompt.content.name || '');
-        promptContent.set(prompt.content.template || '');
+        const vm = createPromptViewModel(prompt.content);
+        promptViewModel.set(vm);
       }
     } else {
       modalTitle = 'LLMプロンプト新規作成';
-      promptName.set('');
-      promptContent.set('');
+      promptViewModel.set({
+        id: '',
+        name: '',
+        template: '',
+        fields: [],
+        frameworkRef: '',
+        metadata: {}
+      });
     }
     
     showModal = true;
@@ -85,17 +97,17 @@
   }
 
   async function savePromptModal(): Promise<void> {
-    if (!$promptContent.trim()) {
+    if (!$promptViewModel.template.trim()) {
       dispatch('message', { text: 'プロンプト内容を入力してください', type: 'error' });
       return;
     }
 
-    if ($promptContent.length > MAX_PROMPT_CONTETNT_LENGTH) {
+    if ($promptViewModel.template.length > MAX_PROMPT_CONTETNT_LENGTH) {
       dispatch('message', { text: `プロンプト内容は${MAX_PROMPT_CONTETNT_LENGTH.toLocaleString()}文字以内で入力してください`, type: 'error' });
       return;
     }
 
-    if ($promptName.length > MAX_PROMPT_NAME_LENGTH) {
+    if ($promptViewModel.name.length > MAX_PROMPT_NAME_LENGTH) {
       dispatch('message', { text: `プロンプト名は${MAX_PROMPT_NAME_LENGTH}文字以内で入力してください`, type: 'error' });
       return;
     }
@@ -108,31 +120,15 @@
       if (editingPromptId) {
         const prompt = newData.prompts.find(p => p.id === editingPromptId);
         if (prompt) {
-          prompt.content = {
-            version: 2,
-            id: prompt.id,
-            name: $promptName || 'プロンプト',
-            template: $promptContent,
-            variables: [],
-            slug: prompt.content.slug,
-            model: prompt.content.model,
-            metadata: prompt.content.metadata,
-            frameworkRef: prompt.content.frameworkRef
-          };
+          prompt.content = toPromptDsl($promptViewModel);
           prompt.updatedAt = new Date().toISOString();
         }
       } else {
         const id = crypto.randomUUID();
+        $promptViewModel.id = id;
         const newPrompt: Prompt = {
           id: id,
-          content: {
-            version: 2,
-            id: id,
-            name: $promptName || 'プロンプト',
-            template: $promptContent,
-            variables: [],
-            frameworkRef: currentData.settings.defaultFrameworkId
-          },
+          content: toPromptDsl($promptViewModel),
           order: newData.prompts.length + 1,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString()
@@ -158,8 +154,14 @@
   function closeModal(): void {
     showModal = false;
     editingPromptId = null;
-    promptName.set('');
-    promptContent.set('');
+    promptViewModel.set({
+      id: '',
+      name: '',
+      template: '',
+      fields: [],
+      frameworkRef: '',
+      metadata: {}
+    });
   }
 </script>
 
@@ -198,7 +200,7 @@
           type="text" 
           id="promptName"
           data-testid="prompt-name-input"
-          bind:value={$promptName}
+          bind:value={$promptViewModel.name}
           placeholder="プロンプトの名前を入力">
       </div>
       <div class="form-group">
@@ -206,7 +208,7 @@
         <textarea 
           id="promptContent"
           data-testid="prompt-content-input"
-          bind:value={$promptContent}
+          bind:value={$promptViewModel.template}
           rows="8" 
           placeholder="LLMプロンプトを入力">
         </textarea>
