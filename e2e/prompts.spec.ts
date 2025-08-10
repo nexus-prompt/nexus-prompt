@@ -4,6 +4,36 @@ import { STORAGE_KEY } from '../src/services/storage';
 
 test.describe('プロンプトテンプレート管理テスト', () => {
   let initialData: AppData = {
+    prompts: [
+        { 
+          id: 'prompt-1', 
+          content: { 
+            version: 2, 
+            id: 'prompt-1', 
+            name: '既存のプロンプト1', 
+            template: '内容1', 
+            inputs: [], 
+            frameworkRef: 'test-framework-id' 
+          }, 
+          order: 1, 
+          createdAt: new Date().toISOString(), 
+          updatedAt: new Date().toISOString() 
+        },
+        { 
+          id: 'prompt-2', 
+          content: { 
+            version: 2, 
+            id: 'prompt-2', 
+            name: '既存のプロンプト2', 
+            template: '内容2', 
+            inputs: [], 
+            frameworkRef: 'test-framework-id'
+          }, 
+          order: 2, 
+          createdAt: new Date().toISOString(), 
+          updatedAt: new Date().toISOString() 
+        }
+    ],
     providers: [
       {
         id: 'gemini-provider-id', 
@@ -17,13 +47,14 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     frameworks: [
       {
         id: 'test-framework-id',
-        name: 'テストフレームワーク',
-        content: 'テストコンテンツ',
+        content: {
+          version: 2,
+          id: 'test-framework-id',
+          name: 'テストフレームワーク',
+          content: 'テストコンテンツ',
+          slug: 'test-framework',
+        },
         order: 1,
-        prompts: [
-          { id: 'prompt-1', name: '既存のプロンプト1', content: '内容1', order: 1, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-          { id: 'prompt-2', name: '既存のプロンプト2', content: '内容2', order: 2, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() }
-        ],
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       }
@@ -60,11 +91,11 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     const storedData = await serviceWorker.evaluate(async (key: string) => {
       return await chrome.storage.local.get(key);
     }, STORAGE_KEY);
-    const prompts = storedData[STORAGE_KEY].frameworks[0].prompts;
+    const prompts = storedData[STORAGE_KEY].prompts;
     expect(prompts.length).toBe(3);
-    const newPrompt = prompts.find((p: Prompt) => p.name === newPromptName);
+    const newPrompt = prompts.find((p: Prompt) => p.content.name === newPromptName);
     expect(newPrompt).toBeDefined();
-    expect(newPrompt.content).toBe(newPromptContent);
+    expect(newPrompt.content.template).toBe(newPromptContent);
 
     await expect(page.locator('[data-testid="prompt-list"]')).toContainText(newPromptName);
   });
@@ -90,10 +121,10 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     const storedData = await serviceWorker.evaluate(async (key: string) => {
       return await chrome.storage.local.get(key);
     }, STORAGE_KEY);
-    const prompts = storedData[STORAGE_KEY].frameworks[0].prompts;
+    const prompts = storedData[STORAGE_KEY].prompts;
     const updatedPrompt = prompts.find((p: Prompt) => p.id === 'prompt-1');
-    expect(updatedPrompt?.name).toBe(updatedPromptName);
-    expect(updatedPrompt?.content).toBe(updatedPromptContent);
+    expect(updatedPrompt?.content.name).toBe(updatedPromptName);
+    expect(updatedPrompt?.content.template).toBe(updatedPromptContent);
 
     await expect(page.locator('[data-testid="prompt-list"]')).toContainText(updatedPromptName);
     await expect(page.locator('[data-testid="prompt-list"]')).not.toContainText('既存のプロンプト1');
@@ -114,7 +145,7 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     const storedData = await serviceWorker.evaluate((key: string) => {
       return chrome.storage.local.get(key);
     }, STORAGE_KEY);
-    const prompts = storedData[STORAGE_KEY].frameworks[0].prompts;
+    const prompts = storedData[STORAGE_KEY].prompts;
     expect(prompts.length).toBe(1);
     expect(prompts.find((p: Prompt) => p.id === 'prompt-1')).toBeUndefined();
 
@@ -141,7 +172,7 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     const storedData = await serviceWorker.evaluate(async (key: string) => {
       return await chrome.storage.local.get(key);
     }, STORAGE_KEY);
-    const prompts = storedData[STORAGE_KEY].frameworks[0].prompts;
+    const prompts = storedData[STORAGE_KEY].prompts;
     expect(prompts.length).toBe(2);
   });
 
@@ -162,10 +193,10 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     const storedData = await serviceWorker.evaluate(async (key: string) => {
       return await chrome.storage.local.get(key);
     }, STORAGE_KEY);
-    const prompts = storedData[STORAGE_KEY].frameworks[0].prompts;
+    const prompts = storedData[STORAGE_KEY].prompts;
     expect(prompts.length).toBe(3);
-    const newPrompt = prompts.find((p: Prompt) => p.content === '内容があればOK');
-    expect(newPrompt?.name).toBe('プロンプト');
+    const newPrompt = prompts.find((p: Prompt) => p.content.template === '内容があればOK');
+    expect(newPrompt?.content.name).toBe('プロンプト');
 
     await expect(page.locator('[data-testid="prompt-list"]')).toContainText("内容があればOK");
   });

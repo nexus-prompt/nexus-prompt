@@ -10,6 +10,7 @@ test.describe('フレームワーク管理テスト', () => {
   });
 
   const testData: AppData = {
+    prompts: [],
     providers: [
       {
         id: 'gemini-provider-id',
@@ -33,9 +34,13 @@ test.describe('フレームワーク管理テスト', () => {
     frameworks: [
       {
         id: 'test-framework-id',
-        name: 'テストフレームワーク',
-        content: '元のフレームワーク内容\n\n# 条件\n- テスト条件1\n- テスト条件2',
-        prompts: [],
+        content: {
+          version: 2,
+          id: 'test-framework-id',
+          name: 'テストフレームワーク',
+          content: '元のフレームワーク内容\n\n# 条件\n- テスト条件1\n- テスト条件2',
+          slug: 'test-framework',
+        },
         order: 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -76,9 +81,9 @@ test.describe('フレームワーク管理テスト', () => {
     }, STORAGE_KEY);
 
     const updatedAppData: AppData = updatedStorageData[STORAGE_KEY];
-    expect(updatedAppData.frameworks[0].content).toBe(newContent);
+    expect(updatedAppData.frameworks[0].content.content).toBe(newContent);
     expect(updatedAppData.frameworks[0].id).toBe(testData.frameworks[0].id);
-    expect(updatedAppData.frameworks[0].name).toBe(testData.frameworks[0].name);
+    expect(updatedAppData.frameworks[0].content.name).toBe(testData.frameworks[0].content.name);
     
     expect(updatedAppData.frameworks[0].updatedAt).not.toBe(testData.frameworks[0].updatedAt);
     expect(new Date(updatedAppData.frameworks[0].updatedAt).getTime()).toBeGreaterThan(
@@ -115,7 +120,7 @@ test.describe('フレームワーク管理テスト', () => {
     }, STORAGE_KEY);
 
     const unchangedAppData: AppData = unchangedStorageData[STORAGE_KEY];
-    expect(unchangedAppData.frameworks[0].content).toBe(testData.frameworks[0].content);
+    expect(unchangedAppData.frameworks[0].content.content).toBe(testData.frameworks[0].content.content);
     expect(unchangedAppData.frameworks[0].updatedAt).toBe(testData.frameworks[0].updatedAt);
 
     await page.close();
@@ -140,7 +145,7 @@ test.describe('フレームワーク管理テスト', () => {
     }, STORAGE_KEY);
 
     const unchangedAppData: AppData = unchangedStorageData[STORAGE_KEY];
-    expect(unchangedAppData.frameworks[0].content).toBe(testData.frameworks[0].content);
+    expect(unchangedAppData.frameworks[0].content.content).toBe(testData.frameworks[0].content.content);
     expect(unchangedAppData.frameworks[0].updatedAt).toBe(testData.frameworks[0].updatedAt);
 
     await page.close();
