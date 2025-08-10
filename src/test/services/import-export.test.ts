@@ -34,37 +34,57 @@ Object.defineProperty(globalThis, 'crypto', {
 });
 
 // --- テストデータファクトリ ---
-const createMockPrompt = (overrides: Partial<Prompt> = {}): Prompt => ({
-  id: 'prompt1',
-  content: {
-    version: 2,
-    id: 'prompt1',
+const createMockPrompt = (overrides: Partial<Prompt> = {}): Prompt => {
+  const resolvedId = overrides.id ? overrides.id : (overrides.content?.id || 'prompt1');
+  const iso = new Date().toISOString();
+
+  const content = {
+    version: 2 as const,
     name: 'テストプロンプト',
     template: 'テスト内容',
-    inputs: [],
+    inputs: [] as any[],
     frameworkRef: 'framework1',
-  },
-  order: 1,
-  createdAt: '2023-01-01T00:00:00.000Z',
-  updatedAt: '2023-01-01T00:00:00.000Z',
-  ...overrides,
-});
+    ...(overrides.content ?? {}),
+    id: resolvedId,
+  } as Prompt['content'];
 
-const createMockFramework = (overrides: Partial<Framework> = {}): Framework => ({
-  id: 'framework1',
-  content: {
-    version: 2,
-    id: 'framework1',
+  const base: Prompt = {
+    id: resolvedId,
+    content,
+    order: 1,
+    createdAt: iso,
+    updatedAt: iso,
+  } as Prompt;
+
+  const { id: _oid, content: _ocontent, ...rest } = (overrides ?? {}) as any;
+  return { ...base, ...rest, id: resolvedId, content } as Prompt;
+};
+
+const createMockFramework = (overrides: Partial<Framework> = {}): Framework => {
+  const resolvedId = overrides.id ? overrides.id : (overrides.content?.id || 'framework1');
+  const iso = new Date().toISOString();
+
+  const content = {
+    version: 2 as const,
     name: 'テストフレームワーク',
     content: 'テスト内容',
     slug: 'test-framework',
     metadata: {},
-  },
-  order: 1,
-  createdAt: '2023-01-01T00:00:00.000Z',
-  updatedAt: '2023-01-01T00:00:00.000Z',
-  ...overrides,
-});
+    ...(overrides.content ?? {}),
+    id: resolvedId,
+  } as Framework['content'];
+
+  const base: Framework = {
+    id: resolvedId,
+    content,
+    order: 1,
+    createdAt: iso,
+    updatedAt: iso,
+  } as Framework;
+
+  const { id: _oid, content: _ocontent, ...rest } = (overrides ?? {}) as any;
+  return { ...base, ...rest, id: resolvedId, content } as Framework;
+};
 
 const createMockProvider = (overrides: Partial<Provider> = {}): Provider => ({
   id: 'provider1',
@@ -140,6 +160,16 @@ describe('ImportExportService', () => {
             },
           },
         ],
+        prompts: [
+          {
+            ...testPrompt,
+            id: '', // IDはクリアされる
+            content: {
+              ...testPrompt.content,
+              template: testPrompt.content.template,
+            },
+          },
+        ],
         settings: {
           defaultFrameworkId: '',
           version: '',
@@ -166,8 +196,25 @@ describe('ImportExportService', () => {
           },
         }),
       ];
+      const testPrompts = [
+        createMockPrompt({
+          id: 'p1',
+          content: {
+            ...createMockPrompt().content,
+            template: createMockPrompt().content.template,
+          },
+        }),
+        createMockPrompt({
+          id: 'p2',
+          content: {
+            ...createMockPrompt().content,
+            template: createMockPrompt().content.template,
+          },
+        }),
+      ];
       const testAppData = createMockAppData({
         frameworks: testFrameworks,
+        prompts: testPrompts,
       });
 
       mockGetAppData.mockResolvedValue(testAppData);
@@ -201,21 +248,31 @@ describe('ImportExportService', () => {
     it('正しいJSON形式のデータをインポートする', async () => {
       const importData = {
         providers: [],
+        prompts: [{
+          id: '', // インポート時はIDは空
+          name: 'インポートプロンプト',
+          content: {
+            version: 2,
+            id: '',
+            name: 'インポートプロンプト',
+            template: 'インポートプロンプト内容',
+            inputs: [],
+          },
+          order: 1,
+          createdAt: '2023-01-01T00:00:00.000Z',
+          updatedAt: '2023-01-01T00:00:00.000Z',
+        }],
         frameworks: [
           {
-            id: '', // インポート時はIDは空
+            id: '',
             name: 'インポートフレームワーク',
-            content: 'インポート内容',
-            prompts: [
-              {
-                id: '', // インポート時はIDは空
-                name: 'インポートプロンプト',
-                content: 'インポートプロンプト内容',
-                order: 1,
-                createdAt: '2023-01-01T00:00:00.000Z',
-                updatedAt: '2023-01-01T00:00:00.000Z',
-              },
-            ],
+            content: {
+              version: 2,
+              id: '',
+              name: 'インポートフレームワーク',
+              content: 'インポート内容',
+              slug: 'インポートフレームワーク',
+            },
             order: 1,
             createdAt: '2023-01-01T00:00:00.000Z',
             updatedAt: '2023-01-01T00:00:00.000Z',
@@ -260,6 +317,7 @@ describe('ImportExportService', () => {
       const importData = {
         frameworks: [createMockFramework()],
         providers: [],
+        prompts: [],
         settings: { defaultFrameworkId: '', version: '' },
       };
 
@@ -276,6 +334,7 @@ describe('ImportExportService', () => {
     it('ドラフトデータが存在しない場合、saveDraftは呼ばれない', async () => {
       const importData = {
         frameworks: [createMockFramework()],
+        prompts: [],
         providers: [],
         settings: { defaultFrameworkId: '', version: '' },
       };
