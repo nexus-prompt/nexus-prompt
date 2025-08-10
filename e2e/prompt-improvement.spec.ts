@@ -13,6 +13,15 @@ test.describe('プロンプト適用（LLM連携）', () => {
   });
 
   const testAppDataWithApiKey: AppData = {
+    prompts: [
+      {
+        id: 'prompt-1',
+        content: { version: 2, id: 'prompt-1', name: 'コーディング質問プロンプト', template: 'プログラミングの質問に答える際は、具体的なコード例を含めて説明してください。', inputs: [], frameworkRef: 'framework-1' },
+        order: 1,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+    ],
     providers: [
       {
         id: 'provider-gemini',
@@ -36,21 +45,16 @@ test.describe('プロンプト適用（LLM連携）', () => {
     frameworks: [
       {
         id: 'framework-1',
-        name: 'テストフレームワーク',
-        content: 'プロンプト改善のためのフレームワーク内容',
-        prompts: [
-          {
-            id: 'prompt-1',
-            name: 'コーディング質問プロンプト',
-            order: 1,
-            content: 'プログラミングの質問に答える際は、具体的なコード例を含めて説明してください。',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        ],
+        content: {
+          version: 2,
+          id: 'framework-1',
+          name: 'テストフレームワーク',
+          content: 'プロンプト改善のためのフレームワーク内容',
+          slug: 'test-framework',
+        },
+        order: 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        order: 1
       }
     ],
     settings: {

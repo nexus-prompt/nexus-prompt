@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ImportExportService } from '../../services/import-export';
-import type { AppData, Framework, Prompt, Provider, DraftData } from '../../types';
+import type { AppData, Framework, Prompt, DraftData } from '../../types';
+import { createMockAppData, createMockFramework, createMockPrompt, createMockDraftData } from '../utils/factories';
 
 // StorageServiceのモック関数を作成
 const mockGetAppData = vi.hoisted(() => vi.fn());
@@ -31,85 +32,6 @@ Object.defineProperty(globalThis, 'crypto', {
     randomUUID: mockRandomUUID,
   },
   writable: true,
-});
-
-// --- テストデータファクトリ ---
-const createMockPrompt = (overrides: Partial<Prompt> = {}): Prompt => {
-  const resolvedId = overrides.id ? overrides.id : (overrides.content?.id || 'prompt1');
-  const iso = new Date().toISOString();
-
-  const content = {
-    version: 2 as const,
-    name: 'テストプロンプト',
-    template: 'テスト内容',
-    inputs: [] as any[],
-    frameworkRef: 'framework1',
-    ...(overrides.content ?? {}),
-    id: resolvedId,
-  } as Prompt['content'];
-
-  const base: Prompt = {
-    id: resolvedId,
-    content,
-    order: 1,
-    createdAt: iso,
-    updatedAt: iso,
-  } as Prompt;
-
-  const { id: _oid, content: _ocontent, ...rest } = (overrides ?? {}) as any;
-  return { ...base, ...rest, id: resolvedId, content } as Prompt;
-};
-
-const createMockFramework = (overrides: Partial<Framework> = {}): Framework => {
-  const resolvedId = overrides.id ? overrides.id : (overrides.content?.id || 'framework1');
-  const iso = new Date().toISOString();
-
-  const content = {
-    version: 2 as const,
-    name: 'テストフレームワーク',
-    content: 'テスト内容',
-    slug: 'test-framework',
-    metadata: {},
-    ...(overrides.content ?? {}),
-    id: resolvedId,
-  } as Framework['content'];
-
-  const base: Framework = {
-    id: resolvedId,
-    content,
-    order: 1,
-    createdAt: iso,
-    updatedAt: iso,
-  } as Framework;
-
-  const { id: _oid, content: _ocontent, ...rest } = (overrides ?? {}) as any;
-  return { ...base, ...rest, id: resolvedId, content } as Framework;
-};
-
-const createMockProvider = (overrides: Partial<Provider> = {}): Provider => ({
-  id: 'provider1',
-  name: 'Gemini',
-  displayName: 'Google Gemini',
-  models: [{ id: 'model1', name: 'gemini-2.0-flash', order: 1, enabled: true, isBuiltIn: true, createdAt: '2023-01-01T00:00:00.000Z', updatedAt: '2023-01-01T00:00:00.000Z' }],
-  createdAt: '2023-01-01T00:00:00.000Z',
-  updatedAt: '2023-01-01T00:00:00.000Z',
-  ...overrides,
-});
-
-const createMockAppData = (overrides: Partial<AppData> = {}): AppData => ({
-  providers: [createMockProvider()],
-  frameworks: [createMockFramework()],
-  prompts: [createMockPrompt()],
-  settings: { defaultFrameworkId: 'framework1', version: '1.0.0' },
-  ...overrides,
-});
-
-const createMockDraftData = (overrides: Partial<DraftData> = {}): DraftData => ({
-  userPrompt: 'ユーザープロンプト',
-  selectedPromptId: 'prompt1',
-  resultArea: 'テスト結果',
-  selectedModelId: 'model1',
-  ...overrides,
 });
 
 describe('ImportExportService', () => {

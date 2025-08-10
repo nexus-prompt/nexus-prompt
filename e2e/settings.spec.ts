@@ -57,6 +57,7 @@ test.describe('APIキー設定画面', () => {
 
 test.describe('インポート・エクスポート機能', () => {
   const testAppDataWithFrameworks: AppData = {
+    prompts: [],
     providers: [
       {
         id: 'provider-gemini',
@@ -80,21 +81,16 @@ test.describe('インポート・エクスポート機能', () => {
     frameworks: [
       {
         id: 'framework-1',
-        name: 'テストフレームワーク',
-        content: 'テスト用フレームワーク内容',
-        prompts: [
-          {
-            id: 'prompt-1',
-            name: 'テストプロンプト',
-            order: 1,
-            content: 'テスト用プロンプト内容',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-          }
-        ],
+        content: {
+          version: 2,
+          id: 'framework-1',
+          name: 'テストフレームワーク',
+          content: 'テスト用フレームワーク内容',
+          slug: 'test-framework',
+        },
+        order: 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        order: 1
       }
     ],
     settings: {
@@ -143,21 +139,18 @@ test.describe('インポート・エクスポート機能', () => {
     await page.click('button:has-text("設定")');
 
     const importData = {
+      prompts: [],
       frameworks: [
         {
           id: 'framework-imported',
           name: 'インポートされたフレームワーク',
-          content: 'インポート用フレームワーク内容',
-          prompts: [
-            {
-              id: 'prompt-imported',
-              name: 'インポートされたプロンプト',
-              order: 1,
-              content: 'インポート用プロンプト内容',
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString()
-            }
-          ],
+          content: {
+            version: 2,
+            id: 'framework-imported',
+            name: 'インポートされたフレームワーク',
+            content: 'インポート用フレームワーク内容',
+            slug: 'test-framework',
+          },
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           order: 1
@@ -177,7 +170,7 @@ test.describe('インポート・エクスポート機能', () => {
     const storedData = await serviceWorker.evaluate(async (key) => await chrome.storage.local.get(key), STORAGE_KEY);
     const appData: AppData = storedData[STORAGE_KEY];
     expect(appData.frameworks).toHaveLength(1);
-    expect(appData.frameworks[0].name).toBe('インポートされたフレームワーク');
+    expect(appData.frameworks[0].content.name).toBe('インポートされたフレームワーク');
 
     await page.close();
   });
@@ -202,7 +195,7 @@ test.describe('インポート・エクスポート機能', () => {
 
     const storedData = await serviceWorker.evaluate(async (key) => await chrome.storage.local.get(key), STORAGE_KEY);
     const appData: AppData = storedData[STORAGE_KEY];
-    expect(appData.frameworks[0].name).toBe('テストフレームワーク');
+    expect(appData.frameworks[0].content.name).toBe('テストフレームワーク');
 
     await page.close();
   });
@@ -239,7 +232,7 @@ test.describe('インポート・エクスポート機能', () => {
 
     const storedData = await serviceWorker.evaluate(async (key) => await chrome.storage.local.get(key), STORAGE_KEY);
     const appData: AppData = storedData[STORAGE_KEY];
-    expect(appData.frameworks[0].name).toBe('テストフレームワーク');
+    expect(appData.frameworks[0].content.name).toBe('テストフレームワーク');
 
     await page.close();
   });
