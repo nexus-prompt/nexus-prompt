@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AppData, MessageType } from '../types';
+  import type { MessageType } from '../types';
   import { storageService } from '../services/storage';
   import { FileImportExportService } from '../services/file-import-export';
   import { createEventDispatcher, onMount } from 'svelte';
@@ -21,7 +21,6 @@
   // Event dispatcher
   const dispatch = createEventDispatcher<{
     message: { text: string; type: MessageType };
-    dataUpdated: { data: AppData };
   }>();
 
   // APIキーの初期化
@@ -126,9 +125,6 @@
       const arrayBuffer = await file.arrayBuffer();
       await fileImportExportService.import(arrayBuffer);
       
-      // データが更新されたので、最新のデータを取得して画面を更新
-      const updatedData = await storageService.getAppData();
-      dispatch('dataUpdated', { data: updatedData });
       dispatch('message', { text: 'フレームワークデータをインポートしました', type: 'success' });
     } catch (error) {
       console.error('インポート中にエラーが発生:', error);

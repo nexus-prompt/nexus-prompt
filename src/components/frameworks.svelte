@@ -1,13 +1,10 @@
 <script lang="ts">
-  import type { AppData, MessageType } from '../types';
-  import { storageService } from '../services/storage';
+  import type { MessageType } from '../types';
   import { createEventDispatcher, onMount } from 'svelte';
   import { writable } from 'svelte/store';
+  import { appData } from '../stores';
   import { FrameworkViewModel, createFrameworkViewModel, toFrameworkDsl } from '../promptops/dsl/framework/renderer';
   
-  // Props
-  export let currentData: AppData;
-
   // Local state
   const frameworkViewModel = writable<FrameworkViewModel>({
     id: '',
@@ -23,13 +20,12 @@
   // Event dispatcher
   const dispatch = createEventDispatcher<{
     message: { text: string; type: MessageType };
-    dataUpdated: { data: AppData };
     promptSelectionReset: void;
   }>();
 
   onMount(() => {
-    console.log('currentData.frameworks[0]?.content', currentData.frameworks[0]?.content);
-    const vm = createFrameworkViewModel(currentData.frameworks[0]?.content);
+    console.log('currentData.frameworks[0]?.content', $appData?.frameworks[0]?.content);
+    const vm = createFrameworkViewModel($appData?.frameworks[0]?.content);
     frameworkViewModel.set(vm);
   });
 
@@ -50,17 +46,15 @@
       const fw = toFrameworkDsl($frameworkViewModel);
 
        // イミュータブルな更新
-      const newData = structuredClone(currentData);
+      const newData = structuredClone($appData);
 
-      if (newData.frameworks[0]) {
+      if (newData?.frameworks[0]) {
         newData.frameworks[0].content = fw;
         newData.frameworks[0].updatedAt = new Date().toISOString();
-        
-        await storageService.saveAppData(newData);
+        appData.set(newData);
         
         dispatch('promptSelectionReset');
         dispatch('message', { text: 'フレームワークを保存しました', type: 'success' });
-        dispatch('dataUpdated', { data: newData });
       }
     } catch (error) {
       console.error('フレームワークの保存エラー:', error);
