@@ -1,9 +1,9 @@
 import { z } from 'zod';
+import { Slug, UuidV1toV6 } from '../schema-common';
 
 export interface PromptSchema {
   version: number;
 }
-export const Slug = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/);
 export const EnumGroups = z.record(z.array(z.string()));
 export const Labels = z.record(z.record(z.string()));
 export const Test = z.object({
@@ -15,4 +15,4 @@ export const Test = z.object({
     maxTokens: z.number().int().positive().optional(),
   }).default({}),
 }).strict();
-
+export { Slug, UuidV1toV6 };

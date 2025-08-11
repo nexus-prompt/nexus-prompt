@@ -2,6 +2,7 @@ import type { AppData, Framework, Prompt, Provider, DraftData } from '../types';
 import { SecureApiKeyManager } from '../secure-api-key-manager';
 import { providersData } from '../data/llm-providers';
 import { Provider as ProviderData, Model as ModelData } from '../data/types';  
+import { v6 as uuidv6 } from 'uuid';
 
 // ストレージキー
 export const STORAGE_KEY = 'nexus/appData';
@@ -50,7 +51,7 @@ export class StorageService {
     } else {
       // データが存在しない場合（初回インストール）：初期データを作成
       const providers = await this.loadProviders();
-      const frameworkId = crypto.randomUUID();
+      const frameworkId = uuidv6().toString();
       const defaultData: AppData = {
         providers,
         prompts: [],
@@ -81,13 +82,13 @@ export class StorageService {
    */
   private async loadProviders(): Promise<Provider[]> {
     return providersData.providers.map((provider: ProviderData) => ({
-      id: crypto.randomUUID(),
+      id: uuidv6().toString(),
       name: provider.name,
       displayName: provider.displayName,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       models: provider.models.map((model: ModelData, index: number) => ({
-        id: crypto.randomUUID(),
+        id: uuidv6().toString(),
         name: model.name,
         order: index + 1,
         enabled: true,
@@ -115,13 +116,13 @@ export class StorageService {
       if (!existingProvider) {
         // 新しいプロバイダーを追加
         userProviders.push({
-          id: crypto.randomUUID(),
+          id: uuidv6().toString(),
           name: sourceProvider.name,
           displayName: sourceProvider.displayName,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           models: sourceProvider.models.map((model: ModelData, index: number) => ({
-            id: crypto.randomUUID(),
+            id: uuidv6().toString(),
             name: model.name,
             order: index + 1,
             enabled: true,
@@ -137,7 +138,7 @@ export class StorageService {
         for (const sourceModel of sourceProvider.models) {
           if (!existingModelsMap.has(sourceModel.name)) {
             existingProvider.models.push({
-              id: crypto.randomUUID(),
+              id: uuidv6().toString(),
               name: sourceModel.name,
               order: existingProvider.models.length + 1,
               enabled: true,

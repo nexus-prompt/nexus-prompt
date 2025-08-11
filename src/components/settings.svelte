@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { AppData, MessageType } from '../types';
   import { storageService } from '../services/storage';
-  import { ImportExportService } from '../services/import-export';
+  import { FileImportExportService } from '../services/file-import-export';
   import { createEventDispatcher, onMount } from 'svelte';
   import { writable } from 'svelte/store';
 
@@ -16,7 +16,7 @@
   const MAX_API_KEY_LENGTH = 300;
 
   // Services
-  const importExportService = new ImportExportService();
+  const fileImportExportService = new FileImportExportService();
 
   // Event dispatcher
   const dispatch = createEventDispatcher<{
@@ -82,20 +82,24 @@
   async function exportData(): Promise<void> {
     try {
       isImportExportLoading = true;
-      const jsonData = await importExportService.exportData();
-      
-      // ファイルダウンロードの実行
-      const blob = new Blob([jsonData], { type: 'application/json' });
+      const zipBytes = await fileImportExportService.export();
+
+      // ZIPダウンロードの実行（ArrayBufferに切り出して型互換にする）
+      const arrayBuffer = zipBytes.buffer.slice(
+        zipBytes.byteOffset,
+        zipBytes.byteOffset + zipBytes.byteLength
+      ) as ArrayBuffer;
+      const blob = new Blob([arrayBuffer], { type: 'application/zip' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `nexus-prompt-frameworks-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `nexus-prompt-export-${new Date().toISOString().split('T')[0]}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      dispatch('message', { text: 'フレームワークデータをエクスポートしました', type: 'success' });
+      dispatch('message', { text: 'データをZIPとしてエクスポートしました', type: 'success' });
     } catch (error) {
       console.error('エクスポート中にエラーが発生:', error);
       dispatch('message', { text: 'エクスポートに失敗しました', type: 'error' });
@@ -119,8 +123,8 @@
 
     try {
       isImportExportLoading = true;
-      const jsonString = await file.text();
-      await importExportService.importData(jsonString);
+      const arrayBuffer = await file.arrayBuffer();
+      await fileImportExportService.import(arrayBuffer);
       
       // データが更新されたので、最新のデータを取得して画面を更新
       const updatedData = await storageService.getAppData();
@@ -128,8 +132,11 @@
       dispatch('message', { text: 'フレームワークデータをインポートしました', type: 'success' });
     } catch (error) {
       console.error('インポート中にエラーが発生:', error);
-      const errorMessage = error instanceof Error ? error.message : 'インポートに失敗しました';
-      dispatch('message', { text: errorMessage, type: 'error' });
+      const rawMessage = error instanceof Error ? error.message : 'インポートに失敗しました';
+      const normalizedMessage = /central directory|zip file/i.test(rawMessage)
+        ? 'インポートファイルの形式が正しくありません。'
+        : rawMessage;
+      dispatch('message', { text: normalizedMessage, type: 'error' });
     } finally {
       isImportExportLoading = false;
       input.value = '';
@@ -240,7 +247,7 @@
         <input
           id="import-file-input"
           type="file"
-          accept=".json"
+          accept=".zip"
           on:change={importData}
           style="display: none;"
           data-testid="import-file-input" />

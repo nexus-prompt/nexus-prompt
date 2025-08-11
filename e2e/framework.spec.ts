@@ -1,6 +1,7 @@
 import { AppData } from '../src/types';
 import { test, expect } from './fixtures';
 import { STORAGE_KEY } from '../src/services/storage';
+import { v6 as uuidv6 } from 'uuid';
 
 test.describe('フレームワーク管理テスト', () => {
   test.beforeEach(async ({ serviceWorker }) => {
@@ -8,7 +9,7 @@ test.describe('フレームワーク管理テスト', () => {
       await chrome.storage.local.clear();
     });
   });
-  const frameworkId = crypto.randomUUID();
+  const frameworkId = uuidv6().toString();
 
   const testData: AppData = {
     prompts: [],

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Slug, type PromptSchema, EnumGroups, Labels, Test } from './schema';
+import { Slug, type PromptSchema, EnumGroups, Labels, Test, UuidV1toV6 } from './schema';
 import { PromptDslV1 } from './v1';
 
 // Prompt DSL v2 クラス: Schema/parseを集約
@@ -22,18 +22,21 @@ export class PromptDslV2 {
 
   static Schema = z.object({
     version: z.literal(PromptDslV2.Version),
-    id: z.string().uuid(),
+    id: UuidV1toV6,
     name: z.string().min(1),
     slug: Slug.optional(),
     template: z.string().min(1),
     inputs: z.array(PromptDslV2.Input).optional().default([]),
     model: PromptDslV2.Model.optional(),
+    // 再現性や実行時の挙動を安定させるための任意コントロール群（例: temperature, top_p など）、モデル共通
+    controls: z.record(z.unknown()).optional(),
     enums: EnumGroups.optional(),
     labels: Labels.optional(),
     metadata: z.record(z.unknown()).optional(),
     tests: z.array(Test).optional(),
     context: z.record(z.unknown()).optional(),
     policies: z.record(z.unknown()).optional(),
+    tags: z.array(z.string()).optional().default([]),
     frameworkRef: z.string().optional(),
   }).strip();
 

@@ -107,11 +107,6 @@
       return;
     }
 
-    if (!($promptViewModel.name && $promptViewModel.name.trim())) {
-      dispatch('message', { text: `プロンプト名を入力してください`, type: 'error' });
-      return;
-    }
-
     if ($promptViewModel.name && $promptViewModel.name.length > MAX_PROMPT_NAME_LENGTH) {
       dispatch('message', { text: `プロンプト名は${MAX_PROMPT_NAME_LENGTH}文字以内で入力してください`, type: 'error' });
       return;
@@ -122,6 +117,7 @@
       // イミュータブルな更新
       const newData = structuredClone(currentData);
       
+      $promptViewModel.name = $promptViewModel.name.trim() || 'プロンプト';
       if (editingPromptId) {
         const prompt = newData.prompts.find(p => p.id === editingPromptId);
         if (prompt) {

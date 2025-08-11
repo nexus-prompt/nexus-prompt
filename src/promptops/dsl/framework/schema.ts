@@ -1,6 +1,6 @@
-import { z } from 'zod';
+import { Slug, UuidV1toV6 } from '../schema-common';
 
 export interface FrameworkSchema {
   version: number;
 }
-export const Slug = z.string().regex(/^[a-z0-9][a-z0-9_-]*$/);
+export { Slug, UuidV1toV6 };
