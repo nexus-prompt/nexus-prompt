@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi,  } from 'vitest';
 import type { AppData, Framework, Prompt, Provider } from '../../types';
-import { StorageService, STORAGE_KEY, DRAFT_STORAGE_KEY } from '../../services/storage';
-import { createMockAppData, createMockFramework, createMockProvider, createMockPrompt, createMockDraftData } from '../utils/factories';
+import { StorageService, STORAGE_KEY, SNAPSHOT_STORAGE_KEY } from '../../services/storage';
+import { createMockAppData, createMockFramework, createMockProvider, createMockPrompt, createMockSnapshotData } from '../utils/factories';
 
 // Chrome storage APIのモック
 const mockChromeStorage = {
@@ -587,21 +587,21 @@ describe('StorageService', () => {
     });
   });
 
-  describe('saveDraft', () => {
-    it('ドラフトデータを保存する', async () => {
-      const testDraftData = createMockDraftData();
+  describe('saveSnapshot', () => {
+    it('スナップショットデータを保存する', async () => {
+      const testSnapshotData = createMockSnapshotData();
 
       mockChromeStorage.local.set.mockResolvedValue(undefined);
 
-      await storageService.saveDraft(testDraftData);
+      await storageService.saveSnapshot(testSnapshotData);
 
       expect(mockChromeStorage.local.set).toHaveBeenCalledWith({
-        [DRAFT_STORAGE_KEY]: testDraftData
+        [SNAPSHOT_STORAGE_KEY]: testSnapshotData
       });
     });
 
-    it('空のドラフトデータでも保存できる', async () => {
-      const emptyDraftData = createMockDraftData({
+    it('空のスナップショットデータでも保存できる', async () => {
+      const emptySnapshotData = createMockSnapshotData({
         userPrompt: '',
         selectedPromptId: '',
         resultArea: '',
@@ -610,52 +610,59 @@ describe('StorageService', () => {
 
       mockChromeStorage.local.set.mockResolvedValue(undefined);
 
-      await storageService.saveDraft(emptyDraftData);
+      await storageService.saveSnapshot(emptySnapshotData);
 
       expect(mockChromeStorage.local.set).toHaveBeenCalledWith({
-        [DRAFT_STORAGE_KEY]: emptyDraftData
+        [SNAPSHOT_STORAGE_KEY]: emptySnapshotData
       });
     });
 
     it('chrome.storage.local.setがエラーをスローした場合、エラーが伝播する', async () => {
-      const testDraftData = createMockDraftData();
+      const testSnapshotData = createMockSnapshotData();
       const storageError = new Error('ストレージ保存失敗');
       mockChromeStorage.local.set.mockRejectedValue(storageError);
 
-      await expect(storageService.saveDraft(testDraftData)).rejects.toThrow(
+      await expect(storageService.saveSnapshot(testSnapshotData)).rejects.toThrow(
         storageError
       );
     });
   });
 
-  describe('getDraft', () => {
-    it('ドラフトデータを取得する', async () => {
-      const testDraftData = createMockDraftData();
+  describe('getSnapshot', () => {
+    it('スナップショットデータを取得する', async () => {
+      const testSnapshotData = createMockSnapshotData();
 
       mockChromeStorage.local.get.mockResolvedValue({
-        [DRAFT_STORAGE_KEY]: testDraftData
+        [SNAPSHOT_STORAGE_KEY]: testSnapshotData
       });
 
-      const result = await storageService.getDraft();
+      const result = await storageService.getSnapshot();
 
-      expect(mockChromeStorage.local.get).toHaveBeenCalledWith([DRAFT_STORAGE_KEY]);
-      expect(result).toEqual(testDraftData);
+      expect(mockChromeStorage.local.get).toHaveBeenCalledWith([SNAPSHOT_STORAGE_KEY]);
+      expect(result).toEqual(testSnapshotData);
     });
 
-    it('ドラフトデータが存在しない場合undefinedを返す', async () => {
+    it('スナップショットデータが存在しない場合undefinedを返す', async () => {
       mockChromeStorage.local.get.mockResolvedValue({});
 
-      const result = await storageService.getDraft();
+      const result = await storageService.getSnapshot();
 
-      expect(mockChromeStorage.local.get).toHaveBeenCalledWith([DRAFT_STORAGE_KEY]);
-      expect(result).toBeUndefined();
+      expect(mockChromeStorage.local.get).toHaveBeenCalledWith([SNAPSHOT_STORAGE_KEY]);
+      expect(result).toStrictEqual({
+        userPrompt: '',
+        selectedPromptId: '',
+        resultArea: '',
+        selectedModelId: '',
+        activeTab: 'main',
+        editingTarget: { type: null, id: '' },
+      });
     });
 
     it('chrome.storage.local.getがエラーをスローした場合、エラーが伝播する', async () => {
       const storageError = new Error('ストレージ取得失敗');
       mockChromeStorage.local.get.mockRejectedValue(storageError);
 
-      await expect(storageService.getDraft()).rejects.toThrow(
+      await expect(storageService.getSnapshot()).rejects.toThrow(
         storageError
       );
     });
