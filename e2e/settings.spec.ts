@@ -156,9 +156,10 @@ test.describe('インポート・エクスポート機能', () => {
       template: 'テンプレート',
       inputs: [],
     } as Record<string, unknown>;
-    const toFrontMatterJson = (obj: Record<string, unknown>) => `---json\n${JSON.stringify(obj, null, 2)}\n---\n`;
-    zip.file(`framework-${fmFramework.id}.md`, toFrontMatterJson(fmFramework));
-    zip.file(`prompt-${fmPrompt.id}.md`, toFrontMatterJson(fmPrompt));
+    // Front-matterは '---' 区切りで、本文は空でも可（YAMLはJSONのスーパーセット）
+    const toFrontMatter = (obj: Record<string, unknown>) => `---\n${JSON.stringify(obj, null, 2)}\n---\n`;
+    zip.file(`framework-${fmFramework.id}.md`, toFrontMatter(fmFramework));
+    zip.file(`prompt-${fmPrompt.id}.md`, toFrontMatter(fmPrompt));
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
 
     await page.setInputFiles('[data-testid="import-file-input"]', {

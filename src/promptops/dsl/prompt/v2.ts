@@ -1,24 +1,13 @@
 import { z } from 'zod';
-import { Slug, type PromptSchema, EnumGroups, Labels, Test, UuidV1toV6 } from './schema';
+import { Slug, type PromptSchema, EnumGroups, Labels, Test, UuidV1toV6, PromptModelSchema, PromptInputSchema } from './schema';
 import { PromptDslV1 } from './v1';
 
 // Prompt DSL v2 クラス: Schema/parseを集約
 export class PromptDslV2 {
   static Version = 2 as const;
-  static Model = z.object({
-    provider: z.string().min(1),
-    name: z.string().min(1),
-    params: z.record(z.unknown()).optional(),
-  }).strict();
+  static Model = PromptModelSchema;
 
-  static Input = z.object({
-    name: z.string().min(1),
-    type: z.enum(['string', 'number', 'boolean', 'array', 'object']),
-    required: z.boolean().optional().default(false),
-    ref: z.string().optional(), // enumグループ名等に参照する場合
-    description: z.string().optional(),
-    default: z.unknown().optional(),
-  }).strict();
+  static Input = PromptInputSchema;
 
   static Schema = z.object({
     version: z.literal(PromptDslV2.Version),

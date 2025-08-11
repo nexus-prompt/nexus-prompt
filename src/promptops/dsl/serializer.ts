@@ -7,7 +7,7 @@ export function loadYaml(text: string): unknown {
 }
 
 // キー順を安定化させる（浅いレベルのソート）。必要なら深い正規化を拡張
-function sortKeysShallow(obj: unknown): unknown {
+export function sortKeysShallow(obj: unknown): unknown {
   if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return obj;
   const entries = Object.entries(obj as Record<string, unknown>).sort(([a], [b]) => a.localeCompare(b));
   const out: Record<string, unknown> = {};

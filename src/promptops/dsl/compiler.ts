@@ -1,7 +1,8 @@
 import type { LatestPromptDsl } from './prompt/registry';
 
 export interface CompileOptions {
-  variables?: Record<string, string>;
+  // テンプレ埋め込み用の変数（UIやCLIから渡される任意値）
+  variables?: Record<string, unknown>;
 }
 
 export function compilePromptToString(
@@ -15,20 +16,42 @@ export function compilePromptToString(
 function fillTemplateVariables(
   template: string,
   prompt: LatestPromptDsl,
-  provided?: Record<string, string>
+  provided?: Record<string, unknown>
 ): string {
-  if (!provided || Object.keys(provided).length === 0) return template;
-
-  const defaults: Record<string, string> = {};
-  if (Array.isArray((prompt as any).variables)) {
-    for (const v of (prompt as any).variables as Array<{ name: string; default?: string }>) {
-      if (v.name && typeof v.default === 'string') defaults[v.name] = v.default;
-    }
+  if (!provided || Object.keys(provided).length === 0) {
+    // default だけで埋め込みを試みる
+    const defaultsOnly = collectDefaultValues(prompt);
+    return replaceTemplate(template, defaultsOnly);
   }
 
-  const values = { ...defaults, ...provided } as Record<string, string>;
-  return template.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (_m, key: string) => {
-    if (key in values) return values[key];
-    return _m;
+  const defaults = collectDefaultValues(prompt);
+  const providedStr: Record<string, string> = {};
+  for (const [k, v] of Object.entries(provided)) {
+    // undefined は無視、null は 'null' にせず空文字に変換（誤展開防止）
+    if (v === undefined) continue;
+    if (v === null) { providedStr[k] = ''; continue; }
+    providedStr[k] = String(v);
+  }
+  const values = { ...defaults, ...providedStr };
+  return replaceTemplate(template, values);
+}
+
+function collectDefaultValues(prompt: LatestPromptDsl): Record<string, string> {
+  const defaults: Record<string, string> = {};
+  if (Array.isArray(prompt.inputs)) {
+    for (const input of prompt.inputs) {
+      if (!input?.name) continue;
+      if (input.default !== undefined && input.default !== null) {
+        defaults[input.name] = String(input.default);
+      }
+    }
+  }
+  return defaults;
+}
+
+function replaceTemplate(template: string, values: Record<string, string>): string {
+  if (!values || Object.keys(values).length === 0) return template;
+  return template.replace(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g, (m, key: string) => {
+    return Object.prototype.hasOwnProperty.call(values, key) ? values[key] : m;
   });
 }
