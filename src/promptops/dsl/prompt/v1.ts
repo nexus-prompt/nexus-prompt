@@ -28,6 +28,8 @@ export class PromptDslV1 {
     template: z.string().min(1),
     inputs: z.array(PromptDslV1.Input).optional().default([]),
     model: PromptDslV1.Model.optional(),
+    // 再現性や実行時の挙動を安定させるための任意コントロール群（例: temperature, top_p など）、モデル共通
+    controls: z.record(z.unknown()).optional(),
     enums: EnumGroups.optional(),
     labels: Labels.optional(),
     metadata: z.record(z.unknown()).optional(),

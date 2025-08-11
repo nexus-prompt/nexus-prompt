@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { AppData, MessageType } from '../types';
   import { storageService } from '../services/storage';
-  import { ImportExportService } from '../services/import-export';
+  import { FileImportExportService } from '../services/file-import-export';
   import { createEventDispatcher, onMount } from 'svelte';
   import { writable } from 'svelte/store';
 
@@ -16,7 +16,7 @@
   const MAX_API_KEY_LENGTH = 300;
 
   // Services
-  const importExportService = new ImportExportService();
+  const fileImportExportService = new FileImportExportService();
 
   // Event dispatcher
   const dispatch = createEventDispatcher<{
@@ -82,7 +82,7 @@
   async function exportData(): Promise<void> {
     try {
       isImportExportLoading = true;
-      const jsonData = await importExportService.exportData();
+      const jsonData = await fileImportExportService.export();
       
       // ファイルダウンロードの実行
       const blob = new Blob([jsonData], { type: 'application/json' });
@@ -120,7 +120,7 @@
     try {
       isImportExportLoading = true;
       const jsonString = await file.text();
-      await importExportService.importData(jsonString);
+      await fileImportExportService.import(jsonString);
       
       // データが更新されたので、最新のデータを取得して画面を更新
       const updatedData = await storageService.getAppData();

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { ImportExportService } from '../../services/import-export';
+import { FileImportExportService } from '../../services/file-import-export';
 import type { AppData, Framework, Prompt, DraftData } from '../../types';
 import { createMockAppData, createMockFramework, createMockPrompt, createMockDraftData } from '../utils/factories';
 
@@ -34,8 +34,8 @@ Object.defineProperty(globalThis, 'crypto', {
   writable: true,
 });
 
-describe('ImportExportService', () => {
-  let importExportService: ImportExportService;
+describe('FileImportExportService', () => {
+  let importExportService: FileImportExportService;
 
   beforeEach(() => {
     // モックのリセット
@@ -51,7 +51,7 @@ describe('ImportExportService', () => {
     // 現在時刻のモック
     vi.setSystemTime(new Date('2023-12-01T00:00:00.000Z'));
 
-    importExportService = new ImportExportService();
+    importExportService = new FileImportExportService();
   });
 
   describe('exportData', () => {
@@ -65,7 +65,7 @@ describe('ImportExportService', () => {
 
       mockGetAppData.mockResolvedValue(testAppData);
 
-      const result = await importExportService.exportData();
+      const result = await importExportService.export();
 
       const exportedData = JSON.parse(result);
       
@@ -141,7 +141,7 @@ describe('ImportExportService', () => {
 
       mockGetAppData.mockResolvedValue(testAppData);
 
-      const result = await importExportService.exportData();
+      const result = await importExportService.export();
       const exportedData = JSON.parse(result);
 
       expect(exportedData.frameworks).toHaveLength(2);
@@ -160,7 +160,7 @@ describe('ImportExportService', () => {
       const storageError = new Error('ストレージ取得失敗');
       mockGetAppData.mockRejectedValue(storageError);
 
-      await expect(importExportService.exportData()).rejects.toThrow(
+      await expect(importExportService.export()).rejects.toThrow(
         storageError
       );
     });
@@ -212,7 +212,7 @@ describe('ImportExportService', () => {
       let uuidCallCount = 0;
       mockRandomUUID.mockImplementation(() => `new-uuid-${++uuidCallCount}`);
 
-      await importExportService.importData(JSON.stringify(importData));
+      await importExportService.import(JSON.stringify(importData));
 
       // saveAppDataが正しい引数で呼ばれることを確認
       expect(mockSaveAppData).toHaveBeenCalledTimes(1);
@@ -246,7 +246,7 @@ describe('ImportExportService', () => {
       const currentDraft = createMockDraftData({ selectedPromptId: 'existing-prompt-id' });
       mockGetDraft.mockResolvedValue(currentDraft);
 
-      await importExportService.importData(JSON.stringify(importData));
+      await importExportService.import(JSON.stringify(importData));
 
       expect(mockSaveDraft).toHaveBeenCalledTimes(1);
       const savedDraft = mockSaveDraft.mock.calls[0][0] as DraftData;
@@ -263,7 +263,7 @@ describe('ImportExportService', () => {
 
       mockGetDraft.mockResolvedValue(null);
 
-      await importExportService.importData(JSON.stringify(importData));
+      await importExportService.import(JSON.stringify(importData));
 
       expect(mockSaveDraft).not.toHaveBeenCalled();
     });
@@ -271,7 +271,7 @@ describe('ImportExportService', () => {
     it('不正なJSON文字列の場合、エラーをスローする', async () => {
       const invalidJson = '{ invalid json }';
 
-      await expect(importExportService.importData(invalidJson)).rejects.toThrow(
+      await expect(importExportService.import(invalidJson)).rejects.toThrow(
         'インポートファイルの形式が正しくありません。'
       );
     });
@@ -282,7 +282,7 @@ describe('ImportExportService', () => {
         settings: { defaultFrameworkId: '', version: '' },
       };
 
-      await expect(importExportService.importData(JSON.stringify(invalidData))).rejects.toThrow(
+      await expect(importExportService.import(JSON.stringify(invalidData))).rejects.toThrow(
         'インポートデータはフレームワークの配列を含む正しい形式である必要があります。'
       );
     });
@@ -294,19 +294,19 @@ describe('ImportExportService', () => {
         settings: { defaultFrameworkId: '', version: '' },
       };
 
-      await expect(importExportService.importData(JSON.stringify(invalidData))).rejects.toThrow(
+      await expect(importExportService.import(JSON.stringify(invalidData))).rejects.toThrow(
         'インポートデータはフレームワークの配列を含む正しい形式である必要があります。'
       );
     });
 
     it('nullが渡された場合、エラーをスローする', async () => {
-      await expect(importExportService.importData('null')).rejects.toThrow(
+      await expect(importExportService.import('null')).rejects.toThrow(
         'インポートデータはフレームワークの配列を含む正しい形式である必要があります。'
       );
     });
 
     it('空のオブジェクトが渡された場合、エラーをスローする', async () => {
-      await expect(importExportService.importData('{}')).rejects.toThrow(
+      await expect(importExportService.import('{}')).rejects.toThrow(
         'インポートデータはフレームワークの配列を含む正しい形式である必要があります。'
       );
     });

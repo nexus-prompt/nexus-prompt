@@ -1,8 +1,9 @@
 import type { LatestPromptDsl } from './registry';
 import { parsePrompt } from './registry';
 import { PromptDslV2 } from './v2';
+import type { z } from 'zod';
 
-export type PromptFieldType = 'string' | 'number' | 'boolean' | 'array' | 'object';
+export type PromptFieldType = z.infer<typeof PromptDslV2.Input>['type'];
 
 export interface PromptFieldView {
   name: string;
@@ -20,6 +21,7 @@ export interface PromptViewModel {
   template: string;
   fields: PromptFieldView[];
   model?: LatestPromptDsl['model'];
+  controls?: LatestPromptDsl['controls'];
   enums?: LatestPromptDsl['enums'];
   labels?: LatestPromptDsl['labels'];
   metadata?: LatestPromptDsl['metadata'];
@@ -52,6 +54,7 @@ export function createPromptViewModel(input: string | unknown): PromptViewModel 
     template: prompt.template,
     fields,
     model: prompt.model,
+    controls: prompt.controls,
     enums: prompt.enums,
     labels: prompt.labels,
     metadata: prompt.metadata,
@@ -66,32 +69,36 @@ export function createPromptViewModel(input: string | unknown): PromptViewModel 
  * - スキーマで最終検証して返す
  */
 export function toPromptDsl(view: PromptViewModel): LatestPromptDsl {
-  const inputs: NonNullable<LatestPromptDsl['inputs']> = (view.fields ?? []).map((f) => ({
-    name: f.name,
-    type: f.type,
-    required: Boolean(f.required),
-    ref: f.ref,
-    description: f.description,
-    default: f.defaultValue,
-  }));
+  const inputs = (view.fields ?? []).map((f) => {
+    // オプショナルなプロパティは、値が存在する場合のみ追加し、YAML/JSONがクリーンになるようにする
+    return {
+      name: f.name,
+      type: f.type,
+      ...(f.required && { required: true }), // required: false はデフォルトなので省略
+      ...(f.ref && { ref: f.ref }),
+      ...(f.description && { description: f.description }),
+      ...(f.defaultValue !== undefined && { default: f.defaultValue }),
+    };
+  });
 
-  const candidate: LatestPromptDsl = {
+  const candidate = {
     version: PromptDslV2.Version,
     id: view.id,
     name: view.name,
-    slug: view.slug,
     template: view.template,
-    inputs,
-    model: view.model,
-    enums: view.enums,
-    labels: view.labels,
-    metadata: view.metadata,
-    context: view.context,
-    policies: view.policies,
-    frameworkRef: view.frameworkRef,
-  } as LatestPromptDsl;
+    // --- Optional fields ---
+    // To keep the output clean, only include optional fields if they have a value.
+    ...(view.slug && { slug: view.slug }),
+    ...(inputs.length > 0 && { inputs }),
+    ...(view.model && { model: view.model }),
+    ...(view.controls && Object.keys(view.controls).length > 0 && { controls: view.controls }),
+    ...(view.enums && Object.keys(view.enums).length > 0 && { enums: view.enums }),
+    ...(view.labels && Object.keys(view.labels).length > 0 && { labels: view.labels }),
+    ...(view.metadata && Object.keys(view.metadata).length > 0 && { metadata: view.metadata }),
+    ...(view.context && Object.keys(view.context).length > 0 && { context: view.context }),
+    ...(view.policies && Object.keys(view.policies).length > 0 && { policies: view.policies }),
+    ...(view.frameworkRef && { frameworkRef: view.frameworkRef }),
+  };
 
   return PromptDslV2.Schema.parse(candidate);
 }
-
-

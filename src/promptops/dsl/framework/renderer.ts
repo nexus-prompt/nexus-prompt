@@ -31,14 +31,15 @@ export function createFrameworkViewModel(input: string | unknown): FrameworkView
  * - スキーマで最終検証して返す
  */
 export function toFrameworkDsl(view: FrameworkViewModel): LatestFrameworkDsl {
-  const candidate: LatestFrameworkDsl = {
+  const candidate = {
     version: FrameworkDslV2.Version,
     id: view.id,
     name: view.name,
-    slug: view.slug,
     content: view.content,
-    metadata: view.metadata,
-  } as LatestFrameworkDsl;
+    // --- Optional fields ---
+    ...(view.slug && { slug: view.slug }),
+    ...(view.metadata && Object.keys(view.metadata).length > 0 && { metadata: view.metadata }),
+  };
 
   return FrameworkDslV2.Schema.parse(candidate);
 }

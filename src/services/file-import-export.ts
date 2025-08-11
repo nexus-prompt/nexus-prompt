@@ -1,10 +1,8 @@
 import type { AppData, Framework, Prompt } from '../types';
 import { storageService, StorageService } from './storage';
 
-export const ImportExportServiceName = 'ImportExportService';
-
 // アプリケーションデータのインポート・エクスポートを管理するサービスクラス
-export class ImportExportService {
+export class FileImportExportService {
   private storage: StorageService = storageService;
 
   /**
@@ -12,7 +10,7 @@ export class ImportExportService {
    * providersとsettingsは個人情報や機密情報を含まないように空の状態でエクスポートされます。
    * @returns {Promise<string>} エクスポートされたAppData（frameworksのみを含む）のJSON文字列
    */
-  async exportData(): Promise<string> {
+  async export(): Promise<string> {
     const appData = await this.storage.getAppData();
 
     appData.frameworks.forEach((framework) => {
@@ -42,7 +40,7 @@ export class ImportExportService {
    * @returns {Promise<void>}
    * @throws {Error} JSONのパースに失敗した場合や、データ形式が不正な場合にエラーをスローします
    */
-  async importData(jsonString: string): Promise<void> {
+  async import(jsonString: string): Promise<void> {
     let parsedJson: unknown;
 
     try {
