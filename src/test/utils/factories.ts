@@ -1,4 +1,4 @@
-import type { AppData, Framework, Prompt, Provider, DraftData } from '../../types';
+import type { AppData, Framework, Prompt, Provider, SnapshotData } from '../../types';
 
 export const createMockPrompt = (overrides: Partial<Prompt> = {}): Prompt => {
   const resolvedId = overrides.id ? overrides.id : (overrides.content?.id || 'prompt1');
@@ -70,10 +70,12 @@ export const createMockAppData = (overrides: Partial<AppData> = {}): AppData => 
   ...overrides,
 });
 
-export const createMockDraftData = (overrides: Partial<DraftData> = {}): DraftData => ({
+export const createMockSnapshotData = (overrides: Partial<SnapshotData> = {}): SnapshotData => ({
   userPrompt: 'ユーザープロンプト',
   selectedPromptId: 'prompt1',
   resultArea: 'テスト結果',
   selectedModelId: 'model1',
+  activeTab: 'main',
+  editingTarget: { type: 'prompt', id: 'prompt1' },
   ...overrides,
 });

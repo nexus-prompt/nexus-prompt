@@ -1,4 +1,4 @@
-import type { AppData, Framework, Prompt, Provider, DraftData } from '../types';
+import type { AppData, Framework, Prompt, Provider, SnapshotData } from '../types';
 import { SecureApiKeyManager } from '../secure-api-key-manager';
 import { providersData } from '../data/llm-providers';
 import { Provider as ProviderData, Model as ModelData } from '../data/types';  
@@ -6,7 +6,7 @@ import { v6 as uuidv6 } from 'uuid';
 
 // ストレージキー
 export const STORAGE_KEY = 'nexus/appData';
-export const DRAFT_STORAGE_KEY = 'nexus/draft';
+export const SNAPSHOT_STORAGE_KEY = 'nexus/snapshot';
 
 /**
  * データストレージ管理クラス
@@ -244,18 +244,56 @@ export class StorageService {
   }
 
   /**
-  * ドラフトデータを保存
+  * スナップショットデータを保存
   */
-  async saveDraft(data: DraftData): Promise<void> {
-    await chrome.storage.local.set({ [DRAFT_STORAGE_KEY]: data });
+  async saveSnapshot(data: SnapshotData): Promise<void> {
+    await chrome.storage.local.set({ [SNAPSHOT_STORAGE_KEY]: data });
   }
 
   /**
-   * ドラフトデータを取得
+   * スナップショットデータを取得
    */
-  async getDraft(): Promise<DraftData> {
-    const result = await chrome.storage.local.get([DRAFT_STORAGE_KEY]);
-    return result[DRAFT_STORAGE_KEY] as DraftData;
+  async getSnapshot(): Promise<SnapshotData> {
+    const result = await chrome.storage.local.get([SNAPSHOT_STORAGE_KEY]);
+    const existing = result[SNAPSHOT_STORAGE_KEY] as SnapshotData | undefined;
+    if (existing) {
+      return existing;
+    }
+    // デフォルトのスナップショットを初期化して保存
+    const defaultSnapshot: SnapshotData = {
+      userPrompt: '',
+      selectedPromptId: '',
+      resultArea: '',
+      selectedModelId: '',
+      activeTab: 'main',
+      editingTarget: { type: null, id: '' },
+    };
+    await this.saveSnapshot(defaultSnapshot);
+    return defaultSnapshot;
+  }
+
+  async clearEditingTarget(): Promise<void> {
+    const data = await this.getSnapshot();
+    data.editingTarget = { type: null, id: '' };
+    await this.saveSnapshot(data);
+  }
+
+  async saveEditingTarget(type: 'prompt' | 'framework', id: string): Promise<void> {
+    const data = await this.getSnapshot();
+    data.editingTarget = { type, id };
+    await this.saveSnapshot(data);
+  }
+
+  async saveActiveTab(tab: 'main' | 'prompts' | 'frameworks' | 'settings'): Promise<void> {
+    const data = await this.getSnapshot();
+    data.activeTab = tab;
+    await this.saveSnapshot(data);
+  }
+
+  async clearActiveTab(): Promise<void> {
+    const data = await this.getSnapshot();
+    data.activeTab = 'main';
+    await this.saveSnapshot(data);
   }
 }
 

@@ -83,7 +83,8 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     await page.click('button:has-text("LLMプロンプト管理")');
     
     await page.click('[data-testid="new-prompt-button"]');
-    await expect(page.locator('[data-testid="prompt-modal"]')).toBeVisible();
+    // 新UIではモーダルではなくエディタビューに遷移する
+    await expect(page.locator('[data-testid="prompt-name-input"]')).toBeVisible();
 
     const newPromptName = '新しいテストプロンプト';
     const newPromptContent = 'これは新しいプロンプトのテスト内容です。';
@@ -92,7 +93,8 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     await page.click('[data-testid="save-prompt-button"]');
 
     await expect(page.locator('[data-testid="message-area"]')).toContainText('プロンプトを保存しました');
-    await expect(page.locator('[data-testid="prompt-modal"]')).not.toBeVisible();
+    // 保存後は一覧に戻る
+    await expect(page.locator('[data-testid="prompt-list"]')).toBeVisible();
 
     const storedData = await serviceWorker.evaluate(async (key: string) => {
       return await chrome.storage.local.get(key);
@@ -115,7 +117,8 @@ test.describe('プロンプトテンプレート管理テスト', () => {
 
     await page.locator('.prompt-item:has-text("既存のプロンプト1")').locator('button:has-text("編集")').click();
 
-    await expect(page.locator('[data-testid="prompt-modal"]')).toBeVisible();
+    // 新UIではモーダルではなくエディタビュー
+    await expect(page.locator('[data-testid="prompt-name-input"]')).toBeVisible();
     const updatedPromptName = '更新されたプロンプト';
     const updatedPromptContent = '更新された内容です。';
     await page.fill('[data-testid="prompt-name-input"]', updatedPromptName);
@@ -173,7 +176,8 @@ test.describe('プロンプトテンプレート管理テスト', () => {
     await page.click('[data-testid="save-prompt-button"]');
 
     await expect(page.locator('[data-testid="message-area"]')).toContainText('プロンプト内容を入力してください');
-    await expect(page.locator('[data-testid="prompt-modal"]')).toBeVisible();
+    // エディタに留まる
+    await expect(page.locator('[data-testid="prompt-name-input"]')).toBeVisible();
 
     const storedData = await serviceWorker.evaluate(async (key: string) => {
       return await chrome.storage.local.get(key);

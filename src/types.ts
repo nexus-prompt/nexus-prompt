@@ -48,11 +48,16 @@ export interface AppData {
   settings: Settings;
 }
 
-export interface DraftData {
+export interface SnapshotData {
   userPrompt: string;
   selectedPromptId: string;
   resultArea: string;
   selectedModelId: string;
+  activeTab: 'main' | 'prompts' | 'frameworks' | 'settings';
+  editingTarget: {
+    type: 'prompt' | 'framework' | null;
+    id: string;
+  };
 }
 
 export interface GeminiResponse {

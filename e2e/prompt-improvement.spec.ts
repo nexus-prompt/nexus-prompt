@@ -16,7 +16,7 @@ test.describe('プロンプト適用（LLM連携）', () => {
     prompts: [
       {
         id: 'prompt-1',
-        content: { version: 2, id: 'prompt-1', name: 'コーディング質問プロンプト', template: 'プログラミングの質問に答える際は、具体的なコード例を含めて説明してください。', inputs: [], frameworkRef: 'framework-1' },
+        content: { version: 2, id: 'prompt-1', name: 'コーディング質問プロンプト', template: 'プログラミングの質問に答える際は、具体的なコード例を含めて説明してください。', inputs: [], frameworkRef: 'framework-1', tags: [] },
         order: 1,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

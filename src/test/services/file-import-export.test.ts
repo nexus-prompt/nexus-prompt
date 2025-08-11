@@ -1,29 +1,29 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FileImportExportService } from '../../services/file-import-export';
-import type { AppData, DraftData } from '../../types';
-import { createMockAppData, createMockFramework, createMockPrompt, createMockDraftData } from '../utils/factories';
+import type { AppData, SnapshotData } from '../../types';
+import { createMockAppData, createMockFramework, createMockPrompt, createMockSnapshotData } from '../utils/factories';
 import { readFile } from 'fs/promises';
 import JSZip from 'jszip';
 
 // StorageServiceのモック関数を作成
 const mockGetAppData = vi.hoisted(() => vi.fn());
 const mockSaveAppData = vi.hoisted(() => vi.fn());
-const mockGetDraft = vi.hoisted(() => vi.fn());
-const mockSaveDraft = vi.hoisted(() => vi.fn());
+const mockGetSnapshot = vi.hoisted(() => vi.fn());
+const mockSaveSnapshot = vi.hoisted(() => vi.fn());
 
 // StorageServiceのモック
 vi.mock('../../services/storage', () => ({
   StorageService: vi.fn().mockImplementation(() => ({
     getAppData: mockGetAppData,
     saveAppData: mockSaveAppData,
-    getDraft: mockGetDraft,
-    saveDraft: mockSaveDraft,
+    getSnapshot: mockGetSnapshot,
+    saveSnapshot: mockSaveSnapshot,
   })),
   storageService: {
     getAppData: mockGetAppData,
     saveAppData: mockSaveAppData,
-    getDraft: mockGetDraft,
-    saveDraft: mockSaveDraft,
+    getSnapshot: mockGetSnapshot,
+    saveSnapshot: mockSaveSnapshot,
   },
 }));
 
@@ -46,8 +46,8 @@ describe('FileImportExportService', () => {
     // デフォルトのモック実装
     mockGetAppData.mockResolvedValue(createMockAppData());
     mockSaveAppData.mockResolvedValue(undefined);
-    mockGetDraft.mockResolvedValue(createMockDraftData());
-    mockSaveDraft.mockResolvedValue(undefined);
+    mockGetSnapshot.mockResolvedValue(createMockSnapshotData());
+    mockSaveSnapshot.mockResolvedValue(undefined);
     mockRandomUUID.mockReturnValue('new-uuid');
 
     // 現在時刻のモック
@@ -167,26 +167,26 @@ describe('FileImportExportService', () => {
     });
 
     it('ドラフトデータが存在する場合、selectedPromptIdをクリアする', async () => {
-      const currentDraft = createMockDraftData({ selectedPromptId: 'existing-prompt-id' });
-      mockGetDraft.mockResolvedValue(currentDraft);
+      const currentSnapshot = createMockSnapshotData({ selectedPromptId: 'existing-prompt-id' });
+      mockGetSnapshot.mockResolvedValue(currentSnapshot);
 
       const arrayBuffer = await readZipFixtureOrGenerate();
 
       await importExportService.import(arrayBuffer);
 
-      expect(mockSaveDraft).toHaveBeenCalledTimes(1);
-      const savedDraft = mockSaveDraft.mock.calls[0][0] as DraftData;
-      expect(savedDraft.selectedPromptId).toBe('');
+      expect(mockSaveSnapshot).toHaveBeenCalledTimes(1);
+      const savedSnapshot = mockSaveSnapshot.mock.calls[0][0] as SnapshotData;
+      expect(savedSnapshot.selectedPromptId).toBe('');
     });
 
-    it('ドラフトデータが存在しない場合、saveDraftは呼ばれない', async () => {
-      mockGetDraft.mockResolvedValue(null);
+    it('スナップショットデータが存在しない場合、saveSnapshotは呼ばれない', async () => {
+      mockGetSnapshot.mockResolvedValue(null);
 
       const arrayBuffer = await readZipFixtureOrGenerate();
 
       await importExportService.import(arrayBuffer);
 
-      expect(mockSaveDraft).not.toHaveBeenCalled();
+      expect(mockSaveSnapshot).not.toHaveBeenCalled();
     });
 
     it('不正なZIPバイト列の場合、エラーをスローする', async () => {

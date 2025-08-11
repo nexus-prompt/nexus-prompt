@@ -1,19 +1,19 @@
 <script lang="ts">
-  import type { AppData, MessageType, DraftData } from '../types';
+  import type { AppData, MessageType, SnapshotData } from '../types';
   import { storageService } from '../services/storage';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
 
   // Props
   export let currentData: AppData;
+  export let currentSnapshot: SnapshotData;
   export let selectedPromptIdFromParent: string 
 
   // Local state
-  const currentDraftData = writable<DraftData>({userPrompt: '', selectedPromptId: '', resultArea: '', selectedModelId: ''}); 
-  const userPrompt = writable('');
+  const userPrompt = writable(currentSnapshot.userPrompt);
   const selectedPromptId = writable(selectedPromptIdFromParent);
-  const selectedModelId = writable('');
-  const resultArea = writable('');
+  const selectedModelId = writable(currentSnapshot.selectedModelId);
+  const resultArea = writable(currentSnapshot.resultArea);
   let isLoading: boolean = false;
   let isThrottled = false;
   let hasPendingChanges = false;
@@ -22,20 +22,21 @@
   const dispatch = createEventDispatcher<{
     message: { text: string; type: MessageType };
     dataUpdated: { data: AppData };
+    snapshotUpdated: { snapshot: SnapshotData };
     switchTab: { tabName: string };
   }>();
 
   // コンポーネントがマウントされた時に、保存されている下書きを読み込む
   onMount(async () => {
-    const draft = await storageService.getDraft();
-    if (draft) {
-      currentDraftData.set(draft);
-      userPrompt.set(draft.userPrompt);
-      selectedPromptId.set(draft.selectedPromptId);
-      selectedModelId.set(draft.selectedModelId);
-      resultArea.set(draft.resultArea);
-    }
     document.addEventListener('visibilitychange', handleVisibilityChange);
+  });
+
+  // 親の onMount 完了後に子の初期化を強制したいケースへの対策：
+  // 親から渡される currentData/currentSnapshot は初期化後に変わる可能性があるため、
+  // 初回 tick 後に実行することで、親の初期化完了を待つ。
+  import { tick } from 'svelte';
+  onMount(async () => {
+    await tick();
   });
 
   async function improvePrompt(): Promise<void> {
@@ -78,22 +79,35 @@
 
       if (response.success) {
         const result = response.data;
-        resultArea.set  (result);
-        currentDraftData.set({
-          userPrompt: $userPrompt,
-          selectedPromptId: $selectedPromptId,
-          resultArea: result,
-          selectedModelId: $selectedModelId
-        });
+        resultArea.set(result);
+
+         // イミュータブルな更新
+        const newSnapshot = structuredClone(currentSnapshot);
+        
+        newSnapshot.userPrompt = $userPrompt;
+        newSnapshot.selectedPromptId = $selectedPromptId;
+        newSnapshot.resultArea = result;
+        newSnapshot.selectedModelId = $selectedModelId;
+
         dispatch('dataUpdated', { data: currentData });
+        dispatch('snapshotUpdated', { snapshot: newSnapshot });
         await storageService.saveAppData(currentData);
-        await storageService.saveDraft($currentDraftData);
+        await storageService.saveSnapshot(newSnapshot);
         dispatch('message', { text: 'プロンプトの改善が完了しました', type: 'success' });
       } else {
         console.warn(response.error);
         if (response.error.includes('APIキーが設定されていません')) {
           dispatch('message', { text: 'APIキーを設定してください', type: 'error' });
+          // 親へのイベント通知とあわせて、スナップショットも直接更新して確実にタブを切り替える
           dispatch('switchTab', { tabName: 'settings' });
+          try {
+            const newSnapshot = structuredClone(currentSnapshot);
+            newSnapshot.activeTab = 'settings';
+            await storageService.saveSnapshot(newSnapshot);
+            dispatch('snapshotUpdated', { snapshot: newSnapshot });
+          } catch (e) {
+            // 失敗しても致命的ではないため握りつぶす
+          }
         } else if (response.error.includes('fetch')) {
           dispatch('message', { text: 'ネットワーク接続に問題があるようです。接続を確認してください。', type: 'error' });
         } else {
@@ -147,20 +161,21 @@
     userPrompt.set('');
     resultArea.set('');
     selectedPromptId.set('');
-    
-    currentDraftData.set({
-      userPrompt: '',
-      selectedPromptId: '',
-      resultArea: '',
-      selectedModelId: $currentDraftData.selectedModelId
-    });
-    storageService.saveDraft($currentDraftData); 
-    
+
+    const newSnapshot = structuredClone(currentSnapshot);
+
+    newSnapshot.userPrompt = '';
+    newSnapshot.selectedPromptId = '';
+    newSnapshot.resultArea = '';
+    storageService.saveSnapshot(newSnapshot); 
+    dispatch('snapshotUpdated', { snapshot: newSnapshot });
     dispatch('message', { text: 'フィールドをリセットしました', type: 'success' });
   }
 
-  const saveDraft = async () => {
-    await storageService.saveDraft($currentDraftData);
+  const saveSnapshot = async () => {
+    const newSnapshot = structuredClone(currentSnapshot);
+    await storageService.saveSnapshot(newSnapshot);
+    dispatch('snapshotUpdated', { snapshot: newSnapshot });
     hasPendingChanges = false;
   };
 
@@ -171,7 +186,7 @@
     }
 
     isThrottled = true;
-    saveDraft();
+    saveSnapshot();
 
     setTimeout(() => {
       isThrottled = false;
@@ -185,39 +200,27 @@
   const handleInput = (event: Event) => {
     const target = event.target as HTMLTextAreaElement;
     if (target.id === "userPrompt") {
-      currentDraftData.set({
-        ...$currentDraftData,
-        userPrompt: target.value
-      });
+      currentSnapshot.userPrompt = target.value;
     } else if (target.id === "promptSelect") {
-      currentDraftData.set({
-        ...$currentDraftData,
-        selectedPromptId: target.value
-      });
+      currentSnapshot.selectedPromptId = target.value;
     } else if (target.id === "resultArea") {
-      currentDraftData.set({
-        ...$currentDraftData,
-        resultArea: target.value
-      });
+      currentSnapshot.resultArea = target.value;
     }else if (target.id === "modelSelect") {
-      currentDraftData.set({
-        ...$currentDraftData,
-        selectedModelId: target.value
-      });
+      currentSnapshot.selectedModelId = target.value;
     }
     throttledSave();
   };
 
   const handleVisibilityChange = () => {
     if (document.visibilityState === 'hidden') {
-      saveDraft();
+      saveSnapshot();
     }
   };
 
   onDestroy(() => {
     document.removeEventListener('visibilitychange', handleVisibilityChange);
     if (hasPendingChanges) {
-      saveDraft();
+      saveSnapshot();
     }
   });
 </script>

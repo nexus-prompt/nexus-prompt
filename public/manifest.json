@@ -1,10 +1,11 @@
 {
   "manifest_version": 3,
   "name": "Nexus Prompt",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "description": "Gemini、ChatGPT、Claude.aiなどのLLM（大規模言語モデル）向けに、高品質で効果的なプロンプトを作成し、最適化するための支援を提供します。",
   "permissions": [
-    "storage"
+    "storage",
+    "sidePanel"
   ],
   "host_permissions": [
     "https://api.openai.com/*",
@@ -14,6 +15,9 @@
   "action": {
     "default_popup": "popup.html",
     "default_title": "Nexus Prompt"
+  },
+  "side_panel": {
+    "default_path": "popup.html"
   },
   "homepage_url": "https://github.com/nexus-prompt/nexus-prompt",
   "background": {

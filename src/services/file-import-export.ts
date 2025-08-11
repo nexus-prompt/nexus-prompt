@@ -164,10 +164,10 @@ export class FileImportExportService {
     };
     await this.storage.saveAppData(newAppData);
 
-    const draft = await this.storage.getDraft();
-    if (draft) {
-      draft.selectedPromptId = '';
-      await this.storage.saveDraft(draft);
+    const snapshot = await this.storage.getSnapshot();
+    if (snapshot) {
+      snapshot.selectedPromptId = '';
+      await this.storage.saveSnapshot(snapshot);
     }
     return;
   }
