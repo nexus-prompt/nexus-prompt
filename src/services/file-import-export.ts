@@ -90,7 +90,7 @@ export class FileImportExportService {
     // ルート直下の framework-*.md を処理（ファイル名昇順）
     const fwFiles = Object.keys(zip.files)
       .filter((p) => /^framework-.*\.md$/i.test(p))
-      .sort((a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' }));
+      .sort((a, b) => b.localeCompare(a, 'en', { numeric: true, sensitivity: 'base' }));
     const seenFrameworkIds = new Set<string>();
     for (const path of fwFiles) {
       const file = zip.file(path);
@@ -125,7 +125,7 @@ export class FileImportExportService {
     const prFiles = Object.keys(zip.files)
       .filter((p) => /\.md$/i.test(p))
       .filter((p) => !/^framework-.*\.md$/i.test(p))
-      .sort((a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' }));
+      .sort((a, b) => b.localeCompare(a, 'en', { numeric: true, sensitivity: 'base' }));
     const seenPromptIds = new Set<string>();
     for (const path of prFiles) {
       const file = zip.file(path);
