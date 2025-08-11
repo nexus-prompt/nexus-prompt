@@ -2,64 +2,55 @@ import type { AppData, Framework, Prompt } from '../types';
 import { storageService, StorageService } from './storage';
 import JSZip from 'jszip';
 import { loadYaml, dumpYamlStable } from '../promptops/dsl/serializer';
+import { parseFramework } from '../promptops/dsl/framework/registry';
+import { parsePrompt } from '../promptops/dsl/prompt/registry';
 
 // アプリケーションデータのインポート・エクスポートを管理するサービスクラス
 export class FileImportExportService {
   private storage: StorageService = storageService;
 
   /**
-   * フレームワークデータをAppDataの形式を維持したJSON文字列としてエクスポートします。
-   * providersとsettingsは個人情報や機密情報を含まないように空の状態でエクスポートされます。
-   * @returns {Promise<string>} エクスポートされたAppData（frameworksのみを含む）のJSON文字列
+   * アプリケーションデータをMarkdown(Front-matter + Body)のZIPにエクスポートします。
+   * - frameworks: `framework-<id>.md`（Front-matter: Framework DSL、本文: content）
+   * - prompts: `<id>.md`（Front-matter: Prompt DSL、本文: template）
+   * providers と settings は現状含めません（機微情報保護）。
+   * @returns {Promise<Uint8Array>} ZIPバイト列
    */
   async export(): Promise<Uint8Array> {
     const appData = await this.storage.getAppData();
 
     const zip = new JSZip();
 
-    // ヘルパー: フロントマター+本文のMarkdownを生成（Buffer非依存）
     const buildFrontMatterMd = (body: string, data: Record<string, unknown>): string => {
       const yaml = dumpYamlStable(data);
-      // yamlは末尾に改行が入るため、そのまま---と本文を接続
       return `---\n${yaml}---\n${body ?? ''}`;
     };
 
     for (const fw of appData.frameworks) {
-      const content = fw.content; // LatestFrameworkDsl
+      const { content, ...frontMatter } = fw.content;
       const fileName = `framework-${fw.id}.md`;
-      const frontMatter: Record<string, unknown> = { ...(content as any) };
-      const body = typeof (content as any).content === 'string'
-        ? (content as any).content
-        : String((content as any).content ?? '');
-      delete (frontMatter as any).content;
-      const markdown = buildFrontMatterMd(body, frontMatter);
+      const markdown = buildFrontMatterMd(content ?? '', frontMatter);
       zip.file(fileName, markdown);
     }
 
-    // Prompts をファイル化（YAMLフロントマターのみ、本文なし）: ルート直下に出力
     for (const p of appData.prompts) {
-      const content = p.content; // LatestPromptDsl
+      const { template, ...frontMatter } = p.content;
       const fileName = `${p.id}.md`;
-      const frontMatter: Record<string, unknown> = { ...(content as any) };
-      const body = typeof (content as any).template === 'string'
-        ? (content as any).template
-        : String((content as any).template ?? '');
-      delete (frontMatter as any).template;
-      const markdown = buildFrontMatterMd(body, frontMatter);
+      const markdown = buildFrontMatterMd(template ?? '', frontMatter);
       zip.file(fileName, markdown);
     }
 
-    // ZIP を Uint8Array で返す
     const zipData = await zip.generateAsync({ type: 'uint8array' });
     return zipData;
   }
 
   /**
    * エクスポートフォーマットに合わせたインポート機能。
-   * - ZIPバイト列（frameworks/*.md, prompts/*.md のフロントマターJSON）
+   * - 期待するZIP構造（ルート直下）:
+   *   - `framework-*.md` … Framework（Front-matter: DSL、本文: content）
+   *   - `*.md`（ただし `framework-*.md` を除く）… Prompt（Front-matter: DSL、本文: template）
    */
   async import(input: ArrayBuffer | Uint8Array): Promise<void> {
-    // 入力はZIPバイト列（ArrayBuffer または Uint8Array）
     const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
     let zip: JSZip;
     try {
@@ -76,7 +67,7 @@ export class FileImportExportService {
     // フロントマター（YAML/JSON互換）+本文を抽出する軽量パーサ（ブラウザで Buffer を使わない）
     const parseFrontMatter = (markdown: string): { data: Record<string, unknown>; body: string } | null => {
       const lines = markdown.split(/\r?\n/);
-      if (!lines[0] || !/^---(\w+)?\s*$/.test(lines[0])) {
+      if (!lines[0] || !/^---\s*$/.test(lines[0])) {
         return null;
       }
       let closeIndex = -1;
@@ -89,7 +80,6 @@ export class FileImportExportService {
       const fmBody = lines.slice(1, closeIndex).join('\n').trim();
       const body = lines.slice(closeIndex + 1).join('\n').replace(/^\n+/, '');
       try {
-        // YAMLはJSONのスーパーセットなので、YAMLローダで両方対応
         const data = loadYaml(fmBody) as Record<string, unknown>;
         return { data, body };
       } catch {
@@ -97,44 +87,73 @@ export class FileImportExportService {
       }
     };
 
-    // ルート直下の framework-*.md を処理
-    const fwFiles = Object.keys(zip.files).filter((p) => /^framework-.*\.md$/i.test(p));
+    // ルート直下の framework-*.md を処理（ファイル名昇順）
+    const fwFiles = Object.keys(zip.files)
+      .filter((p) => /^framework-.*\.md$/i.test(p))
+      .sort((a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' }));
+    const seenFrameworkIds = new Set<string>();
     for (const path of fwFiles) {
       const file = zip.file(path);
       if (!file) continue;
-      const markdown = await file.async('string');
+      try {
+        const markdown = await file.async('string');
         const parsed = parseFrontMatter(markdown);
         if (!parsed) continue;
-        const data = parsed.data as unknown as Framework['content'];
-        const dataWithContent = { ...(data as any), content: parsed.body } as Framework['content'];
-      frameworks.push({
-        id: (data as any).id,
-        content: dataWithContent,
-        order: frameworks.length + 1,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      });
+
+        // フロントマターと本文を結合し、DSLパーサーで検証・マイグレーション
+        const rawContent = { ...parsed.data, content: parsed.body };
+        const frameworkContent = parseFramework(rawContent);
+        const frameworkId = frameworkContent.id;
+
+        if (seenFrameworkIds.has(frameworkId)) {
+          continue;
+        }
+        seenFrameworkIds.add(frameworkId);
+        frameworks.push({
+          id: frameworkId,
+          content: frameworkContent,
+          order: frameworks.length + 1,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        });
+      } catch (e) {
+        console.warn(`Skipping invalid framework file ${path}:`, e);
+      }
     }
 
-    // ルート直下の *.md のうち、framework- ではないものをすべて prompt として処理
+    // ルート直下の *.md のうち、framework- ではないものをすべて prompt として処理（ファイル名昇順）
     const prFiles = Object.keys(zip.files)
       .filter((p) => /\.md$/i.test(p))
-      .filter((p) => !/^framework-.*\.md$/i.test(p));
+      .filter((p) => !/^framework-.*\.md$/i.test(p))
+      .sort((a, b) => a.localeCompare(b, 'en', { numeric: true, sensitivity: 'base' }));
+    const seenPromptIds = new Set<string>();
     for (const path of prFiles) {
       const file = zip.file(path);
       if (!file) continue;
-      const markdown = await file.async('string');
+      try {
+        const markdown = await file.async('string');
         const parsed = parseFrontMatter(markdown);
         if (!parsed) continue;
-        const data = parsed.data as unknown as Prompt['content'];
-        const dataWithTemplate = { ...(data as any), template: parsed.body } as Prompt['content'];
-      prompts.push({
-        id: (data as any).id,
-        content: dataWithTemplate,
-        order: prompts.length + 1,
-        createdAt: nowIso,
-        updatedAt: nowIso,
-      });
+
+        // フロントマターと本文を結合し、DSLパーサーで検証・マイグレーション
+        const rawContent = { ...parsed.data, template: parsed.body };
+        const promptContent = parsePrompt(rawContent);
+        const promptId = promptContent.id;
+
+        if (seenPromptIds.has(promptId)) {
+          continue;
+        }
+        seenPromptIds.add(promptId);
+        prompts.push({
+          id: promptId,
+          content: promptContent,
+          order: prompts.length + 1,
+          createdAt: nowIso,
+          updatedAt: nowIso,
+        });
+      } catch (e) {
+        console.warn(`Skipping invalid prompt file ${path}:`, e);
+      }
     }
 
     const currentAppData = await this.storage.getAppData();

@@ -16,3 +16,19 @@ export const Test = z.object({
   }).default({}),
 }).strict();
 export { Slug, UuidV1toV6 };
+
+// 共通のModel/Inputスキーマ（v1/v2で重複していた定義を集約）
+export const PromptModelSchema = z.object({
+  provider: z.string().min(1),
+  name: z.string().min(1),
+  params: z.record(z.unknown()).optional(),
+}).strict();
+
+export const PromptInputSchema = z.object({
+  name: z.string().min(1),
+  type: z.enum(['string', 'number', 'boolean', 'array', 'object']),
+  required: z.boolean().optional().default(false),
+  ref: z.string().optional(), // enumグループ名等に参照する場合
+  description: z.string().optional(),
+  default: z.unknown().optional(),
+}).strict();
