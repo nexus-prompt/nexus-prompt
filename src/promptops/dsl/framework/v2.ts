@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { Slug, type FrameworkSchema } from './schema';
+import { Slug, type FrameworkSchema, UuidV1toV6 } from './schema';
 import { FrameworkDslV1 } from './v1';
 
 // Framework DSL v2
@@ -8,7 +8,7 @@ export class FrameworkDslV2 {
   static Version = 2 as const;
   static Schema = z.object({
     version: z.literal(2),
-    id: z.string().uuid(),
+    id: UuidV1toV6,
     slug: Slug.optional(),
     name: z.string().min(1),
     content: z.string().default(''),

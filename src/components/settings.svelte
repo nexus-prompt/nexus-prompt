@@ -123,8 +123,8 @@
 
     try {
       isImportExportLoading = true;
-      const jsonString = await file.text();
-      await fileImportExportService.import(jsonString);
+      const arrayBuffer = await file.arrayBuffer();
+      await fileImportExportService.import(arrayBuffer);
       
       // データが更新されたので、最新のデータを取得して画面を更新
       const updatedData = await storageService.getAppData();
@@ -132,8 +132,11 @@
       dispatch('message', { text: 'フレームワークデータをインポートしました', type: 'success' });
     } catch (error) {
       console.error('インポート中にエラーが発生:', error);
-      const errorMessage = error instanceof Error ? error.message : 'インポートに失敗しました';
-      dispatch('message', { text: errorMessage, type: 'error' });
+      const rawMessage = error instanceof Error ? error.message : 'インポートに失敗しました';
+      const normalizedMessage = /central directory|zip file/i.test(rawMessage)
+        ? 'インポートファイルの形式が正しくありません。'
+        : rawMessage;
+      dispatch('message', { text: normalizedMessage, type: 'error' });
     } finally {
       isImportExportLoading = false;
       input.value = '';
@@ -244,7 +247,7 @@
         <input
           id="import-file-input"
           type="file"
-          accept=".json"
+          accept=".zip"
           on:change={importData}
           style="display: none;"
           data-testid="import-file-input" />

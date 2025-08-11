@@ -409,7 +409,7 @@ describe('StorageService', () => {
 
       const updatedPrompt: Prompt = {
         ...existingPrompt,
-        content: { version: 2, id: 'p1', name: 'フレームワーク1', template: '更新された内容', inputs: [], slug: 'test-framework', metadata: {} }
+        content: { version: 2, id: 'p1', name: 'フレームワーク1', template: '更新された内容', inputs: [], tags: [], slug: 'test-framework', metadata: {} }
       };
 
       mockChromeStorage.local.get.mockResolvedValue({

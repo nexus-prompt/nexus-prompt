@@ -1,9 +1,11 @@
 import { test, expect } from './fixtures';
+import JSZip from 'jszip';
 import type { AppData } from '../src/types';
 import { STORAGE_KEY } from '../src/services/storage';
 import { GeminiApiServiceName } from '../src/services/gemini-api';
 import { OpenAIApiServiceName } from '../src/services/openai-api';
 import { AnthropicApiServiceName } from '../src/services/anthropic-api';
+import { v6 as uuidv6 } from 'uuid';
 
 const TEST_API_KEY_NEW = 'TEST_API_KEY_NEW';
 
@@ -122,9 +124,9 @@ test.describe('インポート・エクスポート機能', () => {
     await page.click('[data-testid="export-button"]');
 
     const download = await downloadPromise;
-    expect(download.suggestedFilename()).toMatch(/nexus-prompt-frameworks-\d{4}-\d{2}-\d{2}\.json/);
+    expect(download.suggestedFilename()).toMatch(/nexus-prompt-export-\d{4}-\d{2}-\d{2}\.zip/);
 
-    await expect(page.locator('[data-testid="message-area"]')).toHaveText('フレームワークデータをエクスポートしました');
+    await expect(page.locator('[data-testid="message-area"]')).toHaveText('データをZIPとしてエクスポートしました');
 
     await page.close();
   });
@@ -138,44 +140,44 @@ test.describe('インポート・エクスポート機能', () => {
     await page.waitForSelector('[data-testid="nexus-prompt"]');
     await page.click('button:has-text("設定")');
 
-    const importData = {
-      prompts: [],
-      frameworks: [
-        {
-          id: 'framework-imported',
-          name: 'インポートされたフレームワーク',
-          content: {
-            version: 2,
-            id: 'framework-imported',
-            name: 'インポートされたフレームワーク',
-            content: 'インポート用フレームワーク内容',
-            slug: 'test-framework',
-          },
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          order: 1
-        }
-      ]
-    };
+    // ZIPを生成（frameworks/ と prompts/ のフロントマターJSONのみ）
+    const zip = new JSZip();
+    const fmFramework = {
+      version: 2,
+      id: uuidv6().toString(),
+      name: 'インポートされたフレームワーク',
+      content: 'インポート用フレームワーク内容',
+      slug: 'test-framework',
+    } as Record<string, unknown>;
+    const fmPrompt = {
+      version: 2,
+      id: uuidv6().toString(),
+      name: 'インポートされたプロンプト',
+      template: 'テンプレート',
+      inputs: [],
+    } as Record<string, unknown>;
+    const toFrontMatterJson = (obj: Record<string, unknown>) => `---json\n${JSON.stringify(obj, null, 2)}\n---\n`;
+    zip.file(`framework-${fmFramework.id}.md`, toFrontMatterJson(fmFramework));
+    zip.file(`prompt-${fmPrompt.id}.md`, toFrontMatterJson(fmPrompt));
+    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
 
-    const fileContent = JSON.stringify(importData);
     await page.setInputFiles('[data-testid="import-file-input"]', {
-      name: 'test-import.json',
-      mimeType: 'application/json',
-      buffer: Buffer.from(fileContent)
+      name: 'test-import.zip',
+      mimeType: 'application/zip',
+      buffer: zipBuffer,
     });
 
     await expect(page.locator('[data-testid="message-area"]')).toHaveText('フレームワークデータをインポートしました');
 
     const storedData = await serviceWorker.evaluate(async (key) => await chrome.storage.local.get(key), STORAGE_KEY);
     const appData: AppData = storedData[STORAGE_KEY];
-    expect(appData.frameworks).toHaveLength(1);
+    expect(appData.frameworks.length).toBeGreaterThan(0);
     expect(appData.frameworks[0].content.name).toBe('インポートされたフレームワーク');
 
     await page.close();
   });
 
-  test('Sad Path: 無効なJSONファイルインポート時のエラーハンドリング', async ({ context, serviceWorker, extensionUrl }) => {
+  test('Sad Path: 無効なZIPファイルインポート時のエラーハンドリング', async ({ context, serviceWorker, extensionUrl }) => {
     const page = await context.newPage();
 
     page.on('dialog', dialog => dialog.accept());
@@ -184,14 +186,14 @@ test.describe('インポート・エクスポート機能', () => {
     await page.waitForSelector('[data-testid="nexus-prompt"]');
     await page.click('button:has-text("設定")');
 
-    const invalidFileContent = '{ invalid json content }';
+    const invalidFileContent = '{ invalid zip content }';
     await page.setInputFiles('[data-testid="import-file-input"]', {
-      name: 'invalid-import.json',
-      mimeType: 'application/json',
+      name: 'invalid-import.zip',
+      mimeType: 'application/zip',
       buffer: Buffer.from(invalidFileContent)
     });
 
-    await expect(page.locator('[data-testid="message-area"]')).toContainText('インポートファイルの形式が正しくありません。');
+    await expect(page.locator('[data-testid="message-area"]')).toContainText(/インポートファイルの形式が正しくありません。|central directory/i);
 
     const storedData = await serviceWorker.evaluate(async (key) => await chrome.storage.local.get(key), STORAGE_KEY);
     const appData: AppData = storedData[STORAGE_KEY];
@@ -209,25 +211,13 @@ test.describe('インポート・エクスポート機能', () => {
     await page.waitForSelector('[data-testid="nexus-prompt"]');
     await page.click('button:has-text("設定")');
 
-    const importData = {
-      frameworks: [
-        {
-          id: 'framework-cancelled',
-          name: 'キャンセルされたフレームワーク',
-          content: 'キャンセル用フレームワーク内容',
-          prompts: [],
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          order: 1
-        }
-      ]
-    };
-
-    const fileContent = JSON.stringify(importData);
+    // 単純なZIP（中身は空でも可）を渡しても、ダイアログでキャンセルするため状態は変わらない
+    const zip = new JSZip();
+    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
     await page.setInputFiles('[data-testid="import-file-input"]', {
-      name: 'cancelled-import.json',
-      mimeType: 'application/json',
-      buffer: Buffer.from(fileContent)
+      name: 'cancelled-import.zip',
+      mimeType: 'application/zip',
+      buffer: zipBuffer,
     });
 
     const storedData = await serviceWorker.evaluate(async (key) => await chrome.storage.local.get(key), STORAGE_KEY);

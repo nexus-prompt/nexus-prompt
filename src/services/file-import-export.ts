@@ -1,7 +1,7 @@
 import type { AppData, Framework, Prompt } from '../types';
 import { storageService, StorageService } from './storage';
-import matter from 'gray-matter';
 import JSZip from 'jszip';
+import { loadYaml, dumpYamlStable } from '../promptops/dsl/serializer';
 
 // アプリケーションデータのインポート・エクスポートを管理するサービスクラス
 export class FileImportExportService {
@@ -17,63 +17,36 @@ export class FileImportExportService {
 
     const zip = new JSZip();
 
-    const frameworksFolder = zip.folder('frameworks');
-    const promptsFolder = zip.folder('prompts');
+    // ヘルパー: フロントマター+本文のMarkdownを生成（Buffer非依存）
+    const buildFrontMatterMd = (body: string, data: Record<string, unknown>): string => {
+      const yaml = dumpYamlStable(data);
+      // yamlは末尾に改行が入るため、そのまま---と本文を接続
+      return `---\n${yaml}---\n${body ?? ''}`;
+    };
 
-    const toSafeKebab = (value: string) =>
-      value
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '');
-
-    // Frameworks をファイル化（JSONフロントマターのみ、本文なし）
     for (const fw of appData.frameworks) {
       const content = fw.content; // LatestFrameworkDsl
-      const baseName =
-        (typeof content.slug === 'string' && content.slug)
-          || (typeof content.name === 'string' && content.name)
-          || fw.id;
-      const safe = toSafeKebab(baseName) || 'framework';
-      const fileName = `${safe}-${fw.id}.md`;
-      const markdown = matter.stringify(
-        '',
-        content as unknown as Record<string, unknown>,
-        {
-          language: 'json',
-          engines: {
-            json: {
-              parse: JSON.parse,
-              stringify: (data: unknown) => JSON.stringify(data, null, 2),
-            },
-          },
-        }
-      );
-      frameworksFolder?.file(fileName, markdown);
+      const fileName = `framework-${fw.id}.md`;
+      const frontMatter: Record<string, unknown> = { ...(content as any) };
+      const body = typeof (content as any).content === 'string'
+        ? (content as any).content
+        : String((content as any).content ?? '');
+      delete (frontMatter as any).content;
+      const markdown = buildFrontMatterMd(body, frontMatter);
+      zip.file(fileName, markdown);
     }
 
-    // Prompts をファイル化（JSONフロントマターのみ、本文なし）
+    // Prompts をファイル化（YAMLフロントマターのみ、本文なし）: ルート直下に出力
     for (const p of appData.prompts) {
       const content = p.content; // LatestPromptDsl
-      const baseName =
-        (typeof content.slug === 'string' && content.slug)
-          || (typeof content.name === 'string' && content.name)
-          || p.id;
-      const safe = toSafeKebab(baseName) || 'prompt';
-      const fileName = `${safe}-${p.id}.md`;
-      const markdown = matter.stringify(
-        '',
-        content as unknown as Record<string, unknown>,
-        {
-          language: 'json',
-          engines: {
-            json: {
-              parse: JSON.parse,
-              stringify: (data: unknown) => JSON.stringify(data, null, 2),
-            },
-          },
-        }
-      );
-      promptsFolder?.file(fileName, markdown);
+      const fileName = `${p.id}.md`;
+      const frontMatter: Record<string, unknown> = { ...(content as any) };
+      const body = typeof (content as any).template === 'string'
+        ? (content as any).template
+        : String((content as any).template ?? '');
+      delete (frontMatter as any).template;
+      const markdown = buildFrontMatterMd(body, frontMatter);
+      zip.file(fileName, markdown);
     }
 
     // ZIP を Uint8Array で返す
@@ -81,57 +54,95 @@ export class FileImportExportService {
     return zipData;
   }
 
- /**
-   * AppData形式のJSON文字列からフレームワークデータをインポートします。
-   * JSON内のframeworksデータのみが使用され、既存のフレームワークデータは上書きされます。
-   * providersやsettingsは現在の状態が維持されます。
-   * @param {string} jsonString - インポートするAppData（frameworksを含む）のJSON文字列
-   * @returns {Promise<void>}
-   * @throws {Error} JSONのパースに失敗した場合や、データ形式が不正な場合にエラーをスローします
+  /**
+   * エクスポートフォーマットに合わせたインポート機能。
+   * - ZIPバイト列（frameworks/*.md, prompts/*.md のフロントマターJSON）
    */
-  async import(jsonString: string): Promise<void> {
-    let parsedJson: unknown;
-
+  async import(input: ArrayBuffer | Uint8Array): Promise<void> {
+    // 入力はZIPバイト列（ArrayBuffer または Uint8Array）
+    const bytes = input instanceof Uint8Array ? input : new Uint8Array(input);
+    let zip: JSZip;
     try {
-      parsedJson = JSON.parse(jsonString);
-    } catch (error) {
-      console.error('Failed to parse JSON for import:', error);
+      zip = await JSZip.loadAsync(bytes);
+    } catch (e) {
       throw new Error('インポートファイルの形式が正しくありません。');
     }
 
-    // インポートデータのバリデーション
-    // AppDataの構造を持っており、frameworksプロパティが配列であることを確認
-    if (
-      typeof parsedJson !== 'object' ||
-      parsedJson === null ||
-      !('frameworks' in parsedJson) ||
-      !('prompts' in parsedJson) ||
-      !Array.isArray((parsedJson as { frameworks: unknown }).frameworks) ||
-      !Array.isArray((parsedJson as { prompts: unknown }).prompts)
-      ) {
-      throw new Error('インポートデータはフレームワークの配列を含む正しい形式である必要があります。');
-    }
+    const frameworks: Framework[] = [];
+    const prompts: Prompt[] = [];
 
-    const importedFrameworks = (parsedJson as { frameworks: Framework[] }).frameworks;
-    importedFrameworks.forEach((framework) => {
-      framework.id = crypto.randomUUID();
-      framework.createdAt = new Date().toISOString();
-      framework.updatedAt = new Date().toISOString();
-    });
-    const importedPrompts = (parsedJson  as { prompts: Prompt[] }).prompts;
-    importedPrompts.forEach((prompt) => {
-      prompt.id = crypto.randomUUID();
-      prompt.createdAt = new Date().toISOString();
-      prompt.updatedAt = new Date().toISOString();
-    });
-    const currentAppData = await this.storage.getAppData();
+    const nowIso = new Date().toISOString();
 
-    const newAppData: AppData = {
-      ...currentAppData,
-      frameworks: importedFrameworks,
-      prompts: importedPrompts,
+    // フロントマター（YAML/JSON互換）+本文を抽出する軽量パーサ（ブラウザで Buffer を使わない）
+    const parseFrontMatter = (markdown: string): { data: Record<string, unknown>; body: string } | null => {
+      const lines = markdown.split(/\r?\n/);
+      if (!lines[0] || !/^---(\w+)?\s*$/.test(lines[0])) {
+        return null;
+      }
+      let closeIndex = -1;
+      for (let i = 1; i < lines.length; i += 1) {
+        if (/^---\s*$/.test(lines[i])) { closeIndex = i; break; }
+      }
+      if (closeIndex === -1) {
+        return null;
+      }
+      const fmBody = lines.slice(1, closeIndex).join('\n').trim();
+      const body = lines.slice(closeIndex + 1).join('\n').replace(/^\n+/, '');
+      try {
+        // YAMLはJSONのスーパーセットなので、YAMLローダで両方対応
+        const data = loadYaml(fmBody) as Record<string, unknown>;
+        return { data, body };
+      } catch {
+        return null;
+      }
     };
 
+    // ルート直下の framework-*.md を処理
+    const fwFiles = Object.keys(zip.files).filter((p) => /^framework-.*\.md$/i.test(p));
+    for (const path of fwFiles) {
+      const file = zip.file(path);
+      if (!file) continue;
+      const markdown = await file.async('string');
+        const parsed = parseFrontMatter(markdown);
+        if (!parsed) continue;
+        const data = parsed.data as unknown as Framework['content'];
+        const dataWithContent = { ...(data as any), content: parsed.body } as Framework['content'];
+      frameworks.push({
+        id: (data as any).id,
+        content: dataWithContent,
+        order: frameworks.length + 1,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+    }
+
+    // ルート直下の *.md のうち、framework- ではないものをすべて prompt として処理
+    const prFiles = Object.keys(zip.files)
+      .filter((p) => /\.md$/i.test(p))
+      .filter((p) => !/^framework-.*\.md$/i.test(p));
+    for (const path of prFiles) {
+      const file = zip.file(path);
+      if (!file) continue;
+      const markdown = await file.async('string');
+        const parsed = parseFrontMatter(markdown);
+        if (!parsed) continue;
+        const data = parsed.data as unknown as Prompt['content'];
+        const dataWithTemplate = { ...(data as any), template: parsed.body } as Prompt['content'];
+      prompts.push({
+        id: (data as any).id,
+        content: dataWithTemplate,
+        order: prompts.length + 1,
+        createdAt: nowIso,
+        updatedAt: nowIso,
+      });
+    }
+
+    const currentAppData = await this.storage.getAppData();
+    const newAppData: AppData = {
+      ...currentAppData,
+      frameworks,
+      prompts,
+    };
     await this.storage.saveAppData(newAppData);
 
     const draft = await this.storage.getDraft();
@@ -139,5 +150,6 @@ export class FileImportExportService {
       draft.selectedPromptId = '';
       await this.storage.saveDraft(draft);
     }
+    return;
   }
 }

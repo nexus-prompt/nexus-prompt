@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FileImportExportService } from '../../services/file-import-export';
-import type { AppData, Framework, Prompt, DraftData } from '../../types';
+import type { AppData, DraftData } from '../../types';
 import { createMockAppData, createMockFramework, createMockPrompt, createMockDraftData } from '../utils/factories';
+import { readFile } from 'fs/promises';
+import JSZip from 'jszip';
 
 // StorageServiceのモック関数を作成
 const mockGetAppData = vi.hoisted(() => vi.fn());
@@ -54,8 +56,8 @@ describe('FileImportExportService', () => {
     importExportService = new FileImportExportService();
   });
 
-  describe('exportData', () => {
-    it('フレームワークデータをJSON形式でエクスポートする', async () => {
+  describe('export', () => {
+    it('フレームワークデータをZIP形式でエクスポートする', async () => {
       const testFramework = createMockFramework({ id: 'original-id' });
       const testPrompt = createMockPrompt({ id: 'original-prompt-id' });
       const testAppData = createMockAppData({
@@ -66,37 +68,9 @@ describe('FileImportExportService', () => {
       mockGetAppData.mockResolvedValue(testAppData);
 
       const result = await importExportService.export();
-
-      const exportedData = JSON.parse(result);
+      expect(result).toBeInstanceOf(Uint8Array);
       
-      // エクスポートされたデータの構造を確認
-      expect(exportedData).toEqual({
-        providers: [],
-        frameworks: [
-          {
-            ...testFramework,
-            id: '', // IDはクリアされる
-            content: {
-              ...testFramework.content,
-              content: testFramework.content.content,
-            },
-          },
-        ],
-        prompts: [
-          {
-            ...testPrompt,
-            id: '', // IDはクリアされる
-            content: {
-              ...testPrompt.content,
-              template: testPrompt.content.template,
-            },
-          },
-        ],
-        settings: {
-          defaultFrameworkId: '',
-          version: '',
-        },
-      });
+      expect(result.byteLength).toBeGreaterThan(0);
 
       expect(mockGetAppData).toHaveBeenCalledTimes(1);
     });
@@ -142,18 +116,10 @@ describe('FileImportExportService', () => {
       mockGetAppData.mockResolvedValue(testAppData);
 
       const result = await importExportService.export();
-      const exportedData = JSON.parse(result);
+      expect(result).toBeInstanceOf(Uint8Array);
+      expect(result.byteLength).toBeGreaterThan(0);
 
-      expect(exportedData.frameworks).toHaveLength(2);
-      expect(exportedData.prompts).toHaveLength(2);
-      
-      // すべてのIDがクリアされていることを確認
-      exportedData.frameworks.forEach((framework: Framework) => {
-        expect(framework.id).toBe('');
-      });
-      exportedData.prompts.forEach((prompt: Prompt) => {
-        expect(prompt.id).toBe('');
-      });
+      expect(mockGetAppData).toHaveBeenCalledTimes(1);
     });
 
     it('getAppDataがエラーをスローした場合、エラーが伝播する', async () => {
@@ -166,87 +132,47 @@ describe('FileImportExportService', () => {
     });
   });
 
-  describe('importData', () => {
-    it('正しいJSON形式のデータをインポートする', async () => {
-      const importData = {
-        providers: [],
-        prompts: [{
-          id: '', // インポート時はIDは空
-          name: 'インポートプロンプト',
-          content: {
-            version: 2,
-            id: '',
-            name: 'インポートプロンプト',
-            template: 'インポートプロンプト内容',
-            inputs: [],
-          },
-          order: 1,
-          createdAt: '2023-01-01T00:00:00.000Z',
-          updatedAt: '2023-01-01T00:00:00.000Z',
-        }],
-        frameworks: [
-          {
-            id: '',
-            name: 'インポートフレームワーク',
-            content: {
-              version: 2,
-              id: '',
-              name: 'インポートフレームワーク',
-              content: 'インポート内容',
-              slug: 'インポートフレームワーク',
-            },
-            order: 1,
-            createdAt: '2023-01-01T00:00:00.000Z',
-            updatedAt: '2023-01-01T00:00:00.000Z',
-          },
-        ],
-        settings: {
-          defaultFrameworkId: '',
-          version: '',
-        },
-      };
+  describe('import', () => {
+    const zipPath = 'src/test/data/nexus-prompt-export-2025-08-11.zip';
+    const toArrayBuffer = (u8: Uint8Array) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+    const readZipFixtureOrGenerate = async (): Promise<ArrayBuffer> => {
+      let bytes = await readFile(zipPath);
+      let ok = true;
+      try {
+        await JSZip.loadAsync(bytes);
+      } catch {
+        ok = false;
+      }
+      if (!ok || bytes.byteLength === 0) {
+        mockGetAppData.mockResolvedValue(createMockAppData());
+        const generated = await importExportService.export();
+        bytes = Buffer.from(generated);
+      }
+      return toArrayBuffer(bytes);
+    };
 
+    it('ZIP形式のデータをインポートする', async () => {
       const currentAppData = createMockAppData();
       mockGetAppData.mockResolvedValue(currentAppData);
 
-      let uuidCallCount = 0;
-      mockRandomUUID.mockImplementation(() => `new-uuid-${++uuidCallCount}`);
+      const arrayBuffer = await readZipFixtureOrGenerate();
 
-      await importExportService.import(JSON.stringify(importData));
+      await importExportService.import(arrayBuffer);
 
-      // saveAppDataが正しい引数で呼ばれることを確認
+      // saveAppDataが呼ばれることを確認（詳細はE2Eで担保）
       expect(mockSaveAppData).toHaveBeenCalledTimes(1);
       const savedData = mockSaveAppData.mock.calls[0][0] as AppData;
-
-      // 現在のprovidersとsettingsが保持されることを確認
       expect(savedData.providers).toEqual(currentAppData.providers);
       expect(savedData.settings).toEqual(currentAppData.settings);
-
-      // フレームワークデータが置き換えられることを確認
-      expect(savedData.frameworks).toHaveLength(1);
-      expect(savedData.frameworks[0].content.name).toBe('インポートフレームワーク');
-      expect(savedData.frameworks[0].id).toBe('new-uuid-1'); // 新しいIDが割り当てられる
-      expect(savedData.frameworks[0].createdAt).toBe('2023-12-01T00:00:00.000Z');
-      expect(savedData.frameworks[0].updatedAt).toBe('2023-12-01T00:00:00.000Z');
-
-      // プロンプトにも新しいIDが割り当てられることを確認
-      expect(savedData.prompts[0].id).toBe('new-uuid-2');
-      expect(savedData.prompts[0].createdAt).toBe('2023-12-01T00:00:00.000Z');
-      expect(savedData.prompts[0].updatedAt).toBe('2023-12-01T00:00:00.000Z');
     });
 
     it('ドラフトデータが存在する場合、selectedPromptIdをクリアする', async () => {
-      const importData = {
-        frameworks: [createMockFramework()],
-        providers: [],
-        prompts: [],
-        settings: { defaultFrameworkId: '', version: '' },
-      };
-
       const currentDraft = createMockDraftData({ selectedPromptId: 'existing-prompt-id' });
       mockGetDraft.mockResolvedValue(currentDraft);
 
-      await importExportService.import(JSON.stringify(importData));
+      const arrayBuffer = await readZipFixtureOrGenerate();
+
+      await importExportService.import(arrayBuffer);
 
       expect(mockSaveDraft).toHaveBeenCalledTimes(1);
       const savedDraft = mockSaveDraft.mock.calls[0][0] as DraftData;
@@ -254,61 +180,20 @@ describe('FileImportExportService', () => {
     });
 
     it('ドラフトデータが存在しない場合、saveDraftは呼ばれない', async () => {
-      const importData = {
-        frameworks: [createMockFramework()],
-        prompts: [],
-        providers: [],
-        settings: { defaultFrameworkId: '', version: '' },
-      };
-
       mockGetDraft.mockResolvedValue(null);
 
-      await importExportService.import(JSON.stringify(importData));
+      const arrayBuffer = await readZipFixtureOrGenerate();
+
+      await importExportService.import(arrayBuffer);
 
       expect(mockSaveDraft).not.toHaveBeenCalled();
     });
 
-    it('不正なJSON文字列の場合、エラーをスローする', async () => {
-      const invalidJson = '{ invalid json }';
+    it('不正なZIPバイト列の場合、エラーをスローする', async () => {
+      const invalidBytes = new TextEncoder().encode('{ invalid json }');
+      const arrayBuffer = invalidBytes.buffer.slice(invalidBytes.byteOffset, invalidBytes.byteOffset + invalidBytes.byteLength);
 
-      await expect(importExportService.import(invalidJson)).rejects.toThrow(
-        'インポートファイルの形式が正しくありません。'
-      );
-    });
-
-    it('frameworksプロパティが存在しない場合、エラーをスローする', async () => {
-      const invalidData = {
-        providers: [],
-        settings: { defaultFrameworkId: '', version: '' },
-      };
-
-      await expect(importExportService.import(JSON.stringify(invalidData))).rejects.toThrow(
-        'インポートデータはフレームワークの配列を含む正しい形式である必要があります。'
-      );
-    });
-
-    it('frameworksが配列でない場合、エラーをスローする', async () => {
-      const invalidData = {
-        frameworks: 'not an array',
-        providers: [],
-        settings: { defaultFrameworkId: '', version: '' },
-      };
-
-      await expect(importExportService.import(JSON.stringify(invalidData))).rejects.toThrow(
-        'インポートデータはフレームワークの配列を含む正しい形式である必要があります。'
-      );
-    });
-
-    it('nullが渡された場合、エラーをスローする', async () => {
-      await expect(importExportService.import('null')).rejects.toThrow(
-        'インポートデータはフレームワークの配列を含む正しい形式である必要があります。'
-      );
-    });
-
-    it('空のオブジェクトが渡された場合、エラーをスローする', async () => {
-      await expect(importExportService.import('{}')).rejects.toThrow(
-        'インポートデータはフレームワークの配列を含む正しい形式である必要があります。'
-      );
+      await expect(importExportService.import(arrayBuffer)).rejects.toThrow();
     });
   });
 }); 

@@ -1,11 +1,12 @@
 import { AppData, Prompt } from '../src/types';
 import { test, expect } from './fixtures';
 import { STORAGE_KEY } from '../src/services/storage';
+import { v6 as uuidv6 } from 'uuid';
 
 test.describe('プロンプトテンプレート管理テスト', () => {
-  const prompt1Id = crypto.randomUUID();
-  const prompt2Id = crypto.randomUUID();
-  const frameworkId = crypto.randomUUID();
+  const prompt1Id = uuidv6().toString();
+  const prompt2Id = uuidv6().toString();
+  const frameworkId = uuidv6().toString();
   const initialData: AppData = {
     prompts: [
         { 
@@ -16,6 +17,7 @@ test.describe('プロンプトテンプレート管理テスト', () => {
             name: '既存のプロンプト1', 
             template: '内容1', 
             inputs: [], 
+            tags: [],
             frameworkRef: frameworkId 
           }, 
           order: 1, 
@@ -30,6 +32,7 @@ test.describe('プロンプトテンプレート管理テスト', () => {
             name: '既存のプロンプト2', 
             template: '内容2', 
             inputs: [], 
+            tags: [],
             frameworkRef: frameworkId
           }, 
           order: 2, 

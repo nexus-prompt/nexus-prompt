@@ -12,6 +12,7 @@ export interface PromptFieldView {
   description?: string;
   defaultValue?: unknown;
   ref?: string;
+  tags?: string[];
 }
 
 export interface PromptViewModel {
@@ -27,6 +28,7 @@ export interface PromptViewModel {
   metadata?: LatestPromptDsl['metadata'];
   context?: LatestPromptDsl['context'];
   policies?: LatestPromptDsl['policies'];
+  tags?: string[];
   frameworkRef?: string;
 }
 
@@ -60,6 +62,7 @@ export function createPromptViewModel(input: string | unknown): PromptViewModel 
     metadata: prompt.metadata,
     context: prompt.context,
     policies: prompt.policies,
+    tags: prompt.tags,
     frameworkRef: prompt.frameworkRef,
   };
 }
@@ -97,6 +100,7 @@ export function toPromptDsl(view: PromptViewModel): LatestPromptDsl {
     ...(view.metadata && Object.keys(view.metadata).length > 0 && { metadata: view.metadata }),
     ...(view.context && Object.keys(view.context).length > 0 && { context: view.context }),
     ...(view.policies && Object.keys(view.policies).length > 0 && { policies: view.policies }),
+    ...(view.tags && view.tags.length > 0 && { tags: view.tags }),
     ...(view.frameworkRef && { frameworkRef: view.frameworkRef }),
   };
 
