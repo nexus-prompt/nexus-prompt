@@ -1,5 +1,7 @@
 import type { AppData, Framework, Prompt } from '../types';
 import { storageService, StorageService } from './storage';
+import matter from 'gray-matter';
+import JSZip from 'jszip';
 
 // アプリケーションデータのインポート・エクスポートを管理するサービスクラス
 export class FileImportExportService {
@@ -10,26 +12,73 @@ export class FileImportExportService {
    * providersとsettingsは個人情報や機密情報を含まないように空の状態でエクスポートされます。
    * @returns {Promise<string>} エクスポートされたAppData（frameworksのみを含む）のJSON文字列
    */
-  async export(): Promise<string> {
+  async export(): Promise<Uint8Array> {
     const appData = await this.storage.getAppData();
 
-    appData.frameworks.forEach((framework) => {
-      framework.id = '';
-    });
-    appData.prompts.forEach((prompt) => {
-      prompt.id = '';
-    });
-    const dataToExport: AppData = {
-      providers: [],
-      frameworks: appData.frameworks,
-      prompts: appData.prompts,
-      settings: {
-        defaultFrameworkId: '',
-        version: '',
-      },
-    };
+    const zip = new JSZip();
 
-    return JSON.stringify(dataToExport, null, 2);
+    const frameworksFolder = zip.folder('frameworks');
+    const promptsFolder = zip.folder('prompts');
+
+    const toSafeKebab = (value: string) =>
+      value
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+
+    // Frameworks をファイル化（JSONフロントマターのみ、本文なし）
+    for (const fw of appData.frameworks) {
+      const content = fw.content; // LatestFrameworkDsl
+      const baseName =
+        (typeof content.slug === 'string' && content.slug)
+          || (typeof content.name === 'string' && content.name)
+          || fw.id;
+      const safe = toSafeKebab(baseName) || 'framework';
+      const fileName = `${safe}-${fw.id}.md`;
+      const markdown = matter.stringify(
+        '',
+        content as unknown as Record<string, unknown>,
+        {
+          language: 'json',
+          engines: {
+            json: {
+              parse: JSON.parse,
+              stringify: (data: unknown) => JSON.stringify(data, null, 2),
+            },
+          },
+        }
+      );
+      frameworksFolder?.file(fileName, markdown);
+    }
+
+    // Prompts をファイル化（JSONフロントマターのみ、本文なし）
+    for (const p of appData.prompts) {
+      const content = p.content; // LatestPromptDsl
+      const baseName =
+        (typeof content.slug === 'string' && content.slug)
+          || (typeof content.name === 'string' && content.name)
+          || p.id;
+      const safe = toSafeKebab(baseName) || 'prompt';
+      const fileName = `${safe}-${p.id}.md`;
+      const markdown = matter.stringify(
+        '',
+        content as unknown as Record<string, unknown>,
+        {
+          language: 'json',
+          engines: {
+            json: {
+              parse: JSON.parse,
+              stringify: (data: unknown) => JSON.stringify(data, null, 2),
+            },
+          },
+        }
+      );
+      promptsFolder?.file(fileName, markdown);
+    }
+
+    // ZIP を Uint8Array で返す
+    const zipData = await zip.generateAsync({ type: 'uint8array' });
+    return zipData;
   }
 
  /**

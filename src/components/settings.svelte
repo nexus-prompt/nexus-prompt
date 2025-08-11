@@ -82,20 +82,24 @@
   async function exportData(): Promise<void> {
     try {
       isImportExportLoading = true;
-      const jsonData = await fileImportExportService.export();
-      
-      // ファイルダウンロードの実行
-      const blob = new Blob([jsonData], { type: 'application/json' });
+      const zipBytes = await fileImportExportService.export();
+
+      // ZIPダウンロードの実行（ArrayBufferに切り出して型互換にする）
+      const arrayBuffer = zipBytes.buffer.slice(
+        zipBytes.byteOffset,
+        zipBytes.byteOffset + zipBytes.byteLength
+      ) as ArrayBuffer;
+      const blob = new Blob([arrayBuffer], { type: 'application/zip' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `nexus-prompt-frameworks-${new Date().toISOString().split('T')[0]}.json`;
+      a.download = `nexus-prompt-export-${new Date().toISOString().split('T')[0]}.zip`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      dispatch('message', { text: 'フレームワークデータをエクスポートしました', type: 'success' });
+      dispatch('message', { text: 'データをZIPとしてエクスポートしました', type: 'success' });
     } catch (error) {
       console.error('エクスポート中にエラーが発生:', error);
       dispatch('message', { text: 'エクスポートに失敗しました', type: 'error' });
