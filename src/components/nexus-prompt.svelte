@@ -142,7 +142,7 @@
     {/if}
   </div>
 
-  {#if $appData && $snapshotData}
+  {#if $appData && $snapshotData && $viewContext}
     <!-- メイン画面（プロンプト改善） -->
     {#if $snapshotData.activeTab === 'main'}
     <div id="main" class="tab-content active">

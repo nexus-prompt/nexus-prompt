@@ -27,6 +27,7 @@
   let view: 'list' | 'edit' = 'list';
   let editingPromptId: string | null = null;
   let deletingIds: Set<string> = new Set();
+  let handledSidepanelInit = false;
   
   // Constants
   const MAX_PROMPT_CONTETNT_LENGTH = 10000;
@@ -47,17 +48,19 @@
   $: isHeadless = typeof navigator !== 'undefined' && /Headless/i.test(navigator.userAgent || '');
   $: canUseSidePanel = Boolean((chrome as any)?.sidePanel?.open) && Boolean((chrome as any)?.windows?.getCurrent) && !isHeadless;
 
-  onMount(async () => {
-    // サイドパネルとして開かれ、編集対象が指定されているかチェック
-    if ($viewContext === 'sidepanel' && $snapshotData?.editingTarget.type === 'prompt') {
-      // ID が無くても新規作成の編集ビューを開く
-      editingPromptId = $snapshotData.editingTarget.id || null;
-      view = 'edit';
-      await storageService.clearEditingTarget();
-      // ストアを直接更新
-      snapshotData.update(current => current ? { ...current, editingTarget: { type: null, id: '' } } : null);
-    }
-  });
+  // 親の onMount 後に viewContext が設定されるため、変化を一度だけ拾う
+  $: if (!handledSidepanelInit && $viewContext === 'sidepanel' && $snapshotData?.editingTarget.type === 'prompt') {
+    handledSidepanelInit = true;
+    editingPromptId = $snapshotData.editingTarget.id || null;
+    view = 'edit';
+    (async () => {
+      try {
+        await storageService.clearEditingTarget();
+      } finally {
+        snapshotData.update(current => current ? { ...current, editingTarget: { type: null, id: '' } } : null);
+      }
+    })();
+  }
 
   // 親の onMount 完了後に子の初期化を強制したいケースへの対策：
   // 親から渡される currentData/currentSnapshot は初期化後に変わる可能性があるため、
@@ -151,21 +154,20 @@
 
         appData.update(current => {
           if (!current) return null;
-          const newData = structuredClone(current);
           // 削除対象のプロンプトのorderを取得
-          const deletedPrompt = newData.prompts.find(p => p.id === promptId);
+          const deletedPrompt = current.prompts.find(p => p.id === promptId);
           const deletedOrder = deletedPrompt?.order || 0;
           
           // プロンプトを削除
-          newData.prompts = newData.prompts.filter(p => p.id !== promptId);
+          current.prompts = current.prompts.filter(p => p.id !== promptId);
           
           // 削除されたorder以降のプロンプトのorderを-1する
-          newData.prompts.forEach(prompt => {
+          current.prompts.forEach(prompt => {
             if (prompt.order > deletedOrder && prompt.order > 1) {
               prompt.order -= 1;
             }
           });
-          return newData;
+          return current;
         });
         
         dispatch('message', { text: 'プロンプトを削除しました', type: 'success' });
@@ -199,10 +201,9 @@
     try {
       appData.update(current => {
         if (!current) return null;
-        const newData = structuredClone(current);
         $promptViewModel.name = $promptViewModel.name.trim() || 'プロンプト';
         if (editingPromptId) {
-          const prompt = newData.prompts.find(p => p.id === editingPromptId);
+          const prompt = current.prompts.find(p => p.id === editingPromptId);
           if (prompt) {
             prompt.content = toPromptDsl($promptViewModel);
             prompt.updatedAt = new Date().toISOString();
@@ -213,13 +214,13 @@
           const newPrompt: Prompt = {
             id: id,
             content: toPromptDsl($promptViewModel),
-            order: newData.prompts.length + 1,
+            order: current.prompts.length + 1,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
           };
-          newData.prompts.push(newPrompt);
+          current.prompts.push(newPrompt);
         }
-        return newData;
+        return current;
       });
       
       dispatch('promptSelectionReset');

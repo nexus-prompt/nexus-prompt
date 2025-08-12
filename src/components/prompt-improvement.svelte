@@ -147,9 +147,15 @@
     dispatch('message', { text: 'フィールドをリセットしました', type: 'success' });
   }
 
+  // ストア更新時に自動保存されるため、明示保存は不要
   const saveSnapshot = async () => {
-    const newSnapshot = structuredClone($snapshotData);
-    snapshotData.set(newSnapshot);
+    snapshotData?.update(current => current ? {
+      ...current,
+      userPrompt: $userPrompt,
+      selectedPromptId: $selectedPromptId,
+      resultArea: $resultArea,
+      selectedModelId: $selectedModelId
+    } : current);
     hasPendingChanges = false;
   };
 
@@ -160,28 +166,18 @@
     }
 
     isThrottled = true;
-    saveSnapshot();
+    void saveSnapshot(); // 先頭保存
 
     setTimeout(() => {
       isThrottled = false;
       if (hasPendingChanges) {
-        throttledSave(); // 保存されなかった最後の変更を保存
+        void saveSnapshot(); // 末尾保存（取りこぼし防止）
       }
     }, 500);
   };
 
-  // 入力があるたびに呼び出される関数
-  const handleInput = (event: Event) => {
-    const target = event.target as HTMLTextAreaElement;
-    if (target.id === "userPrompt") {
-      snapshotData?.update(current => current ? { ...current, userPrompt: target.value } : current);
-    } else if (target.id === "promptSelect") {
-      snapshotData?.update(current => current ? { ...current, selectedPromptId: target.value } : current);
-    } else if (target.id === "resultArea") {
-      snapshotData?.update(current => current ? { ...current, resultArea: target.value } : current);
-    }else if (target.id === "modelSelect") {
-      snapshotData?.update(current => current ? { ...current, selectedModelId: target.value } : current);
-    }
+  // 入力があるたびに呼び出される関数（ローカル状態は bind で更新されるため、保存のみスロットリング）
+  const handleInput = () => {
     throttledSave();
   };
 
