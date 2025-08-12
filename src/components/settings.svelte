@@ -1,16 +1,15 @@
 <script lang="ts">
-  import type { MessageType } from '../types';
   import { storageService } from '../services/storage';
   import { FileImportExportService } from '../services/file-import-export';
-  import { createEventDispatcher, onMount } from 'svelte';
-  import { writable } from 'svelte/store';
+  import { showToast } from '../stores';
 
   // Local state
-  const geminiApiKey = writable('');
-  const openaiApiKey = writable('');
-  const anthropicApiKey = writable('');
-  let isLoading: boolean = false;
-  let isImportExportLoading: boolean = false;
+  let geminiApiKey = $state('');
+  let openaiApiKey = $state('');
+  let anthropicApiKey = $state('');
+  let isLoading = $state(false);
+  let isImportExportLoading = $state(false);
+  let initialized = $state(false);
   
   // Constants
   const MAX_API_KEY_LENGTH = 300;
@@ -18,67 +17,52 @@
   // Services
   const fileImportExportService = new FileImportExportService();
 
-  // Event dispatcher
-  const dispatch = createEventDispatcher<{
-    message: { text: string; type: MessageType };
-  }>();
-
-  // APIキーの初期化
-  onMount(async () => {
-    try {
-      geminiApiKey.set(await storageService.getApiKey('Gemini') || '');
-      openaiApiKey.set(await storageService.getApiKey('OpenAI') || '');
-      anthropicApiKey.set(await storageService.getApiKey('Anthropic') || '');
-    } catch (error) {
-      console.error('APIキーの読み込みに失敗:', error);
-    }
+  $effect(() => {
+    (async () => {
+      if (initialized) return;
+      try {
+        geminiApiKey = (await storageService.getApiKey('Gemini')) || '';
+        openaiApiKey = (await storageService.getApiKey('OpenAI')) || '';
+        anthropicApiKey = (await storageService.getApiKey('Anthropic')) || '';
+      } catch (error) {
+        console.error('APIキーの読み込みに失敗:', error);
+      } finally {
+        initialized = true;
+      }
+    })();
   });
 
-  /**
-   * APIキー保存
-   */
-  async function saveApiKey(event: Event): Promise<void> {
-    const target = event.target as HTMLElement;
-    const providerName = target.getAttribute('data-provider-name') || '';
+  function validateApiKey(key: string, maxLen: number): string | null {
+    if (!key.trim()) return 'APIキーを入力してください';
+    if (key.length > maxLen) return `APIキーは${maxLen}文字以内で入力してください`;
+    return null;
+  }
 
-    let apiKey = '';
-    if (providerName === 'Gemini') {
-      apiKey = $geminiApiKey;
-    } else if (providerName === 'OpenAI') {
-      apiKey = $openaiApiKey;
-    } else if (providerName === 'Anthropic') {
-      apiKey = $anthropicApiKey;
-    }
+  type ProviderName = 'Gemini' | 'OpenAI' | 'Anthropic';
+  async function saveApiKeyFor(providerName: ProviderName): Promise<void> {
+    const apiKey = providerName === 'Gemini' ? geminiApiKey
+      : providerName === 'OpenAI' ? openaiApiKey
+      : anthropicApiKey;
 
-    if (!apiKey.trim()) {
-      dispatch('message', { text: 'APIキーを入力してください', type: 'error' });
-      return;
-    }
-
-    if (apiKey.length > MAX_API_KEY_LENGTH) {
-      dispatch('message', { text: `APIキーは${MAX_API_KEY_LENGTH}文字以内で入力してください`, type: 'error' });
+    const error = validateApiKey(apiKey, MAX_API_KEY_LENGTH);
+    if (error) {
+      showToast(error, 'error');
       return;
     }
 
     try {
       isLoading = true;
-      // 暗号化してStorageServiceに保存
       const success = await storageService.setApiKey(providerName, apiKey);
-
-      if (success) {
-        dispatch('message', { text: 'APIキーを保存しました', type: 'success' });
-      } else {
-        dispatch('message', { text: 'APIキーの保存に失敗しました', type: 'error' });
-      }
+      showToast(success ? 'APIキーを保存しました' : 'APIキーの保存に失敗しました', success ? 'success' : 'error');
     } catch (error) {
       console.error('APIキーの保存中に予期せぬエラー:', error);
-      dispatch('message', { text: 'APIキーの保存に失敗しました', type: 'error' });
+      showToast('APIキーの保存に失敗しました', 'error');
     } finally {
       isLoading = false;
     }
   }
 
-  async function exportData(): Promise<void> {
+  async function exportFile(): Promise<void> {
     try {
       isImportExportLoading = true;
       const zipBytes = await fileImportExportService.export();
@@ -98,16 +82,16 @@
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
       
-      dispatch('message', { text: 'データをZIPとしてエクスポートしました', type: 'success' });
+      showToast('データをZIPとしてエクスポートしました', 'success');
     } catch (error) {
       console.error('エクスポート中にエラーが発生:', error);
-      dispatch('message', { text: 'エクスポートに失敗しました', type: 'error' });
+      showToast('エクスポートに失敗しました', 'error');
     } finally {
       isImportExportLoading = false;
     }
   }
 
-  async function importData(event: Event): Promise<void> {
+  async function importFile(event: Event): Promise<void> {
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
     
@@ -125,14 +109,14 @@
       const arrayBuffer = await file.arrayBuffer();
       await fileImportExportService.import(arrayBuffer);
       
-      dispatch('message', { text: 'フレームワークデータをインポートしました', type: 'success' });
+      showToast('フレームワークデータをインポートしました', 'success');
     } catch (error) {
       console.error('インポート中にエラーが発生:', error);
       const rawMessage = error instanceof Error ? error.message : 'インポートに失敗しました';
       const normalizedMessage = /central directory|zip file/i.test(rawMessage)
         ? 'インポートファイルの形式が正しくありません。'
         : rawMessage;
-      dispatch('message', { text: normalizedMessage, type: 'error' });
+      showToast(normalizedMessage, 'error');
     } finally {
       isImportExportLoading = false;
       input.value = '';
@@ -156,16 +140,15 @@
         <input 
           type="password" 
           id="apiKey"
-          bind:value={$geminiApiKey}
+          bind:value={geminiApiKey}
           disabled={isLoading}
           data-testid="gemini-api-key-input"
           placeholder="APIキーを入力してください">
         <button
           id="saveApiKey"
           class="primary-button"
-          on:click={saveApiKey}
+          onclick={() => saveApiKeyFor('Gemini')}
           data-testid="save-gemini-api-key-button"
-          data-provider-name="Gemini"
           disabled={isLoading}>{isLoading ? '保存中...' : '保存'}
         </button>
       </div>
@@ -176,16 +159,15 @@
         <input 
           type="password" 
           id="apiKey"
-          bind:value={$openaiApiKey}
+          bind:value={openaiApiKey}
           disabled={isLoading}
           data-testid="openai-api-key-input"
           placeholder="APIキーを入力してください">
         <button
           id="saveApiKey"
           class="primary-button"
-          on:click={saveApiKey}
+          onclick={() => saveApiKeyFor('OpenAI')}
           data-testid="save-openai-api-key-button"
-          data-provider-name="OpenAI"
           disabled={isLoading}>{isLoading ? '保存中...' : '保存'}
         </button>
       </div>
@@ -196,16 +178,15 @@
         <input 
           type="password" 
           id="apiKey"
-          bind:value={$anthropicApiKey}
+          bind:value={anthropicApiKey}
           disabled={isLoading}
           data-testid="anthropic-api-key-input"
           placeholder="APIキーを入力してください">
         <button
           id="saveApiKey"
           class="primary-button"
-          on:click={saveApiKey}
+          onclick={() => saveApiKeyFor('Anthropic')}
           data-testid="save-anthropic-api-key-button"
-          data-provider-name="Anthropic"
           disabled={isLoading}>{isLoading ? '保存中...' : '保存'}
         </button>
       </div>
@@ -222,7 +203,7 @@
         <p class="description">作成したフレームワークとLLMプロンプトをJSONファイルとしてダウンロードします</p>
         <button
           class="secondary-button"
-          on:click={exportData}
+          onclick={exportFile}
           disabled={isImportExportLoading}
           data-testid="export-button">
           {isImportExportLoading ? 'エクスポート中...' : 'エクスポート'}
@@ -235,7 +216,7 @@
         <p class="description">JSONファイルからフレームワークとLLMプロンプトをインポートします（既存データは上書きされます）</p>
         <button
           class="secondary-button"
-          on:click={openFileDialog}
+          onclick={openFileDialog}
           disabled={isImportExportLoading}
           data-testid="import-button">
           {isImportExportLoading ? 'インポート中...' : 'インポート'}
@@ -244,7 +225,7 @@
           id="import-file-input"
           type="file"
           accept=".zip"
-          on:change={importData}
+          onchange={importFile}
           style="display: none;"
           data-testid="import-file-input" />
       </div>
