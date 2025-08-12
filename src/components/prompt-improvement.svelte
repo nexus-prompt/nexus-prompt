@@ -1,19 +1,17 @@
 <script lang="ts">
-  import type { AppData, MessageType, SnapshotData } from '../types';
-  import { storageService } from '../services/storage';
+  import type { MessageType, ModelInfo } from '../types';
+  import { appData, snapshotData } from '../stores';
   import { createEventDispatcher, onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
 
   // Props
-  export let currentData: AppData;
-  export let currentSnapshot: SnapshotData;
   export let selectedPromptIdFromParent: string 
 
   // Local state
-  const userPrompt = writable(currentSnapshot.userPrompt);
+  const userPrompt = writable($snapshotData?.userPrompt || '');
   const selectedPromptId = writable(selectedPromptIdFromParent);
-  const selectedModelId = writable(currentSnapshot.selectedModelId);
-  const resultArea = writable(currentSnapshot.resultArea);
+  const selectedModelId = writable($snapshotData?.selectedModelId || '');
+  const resultArea = writable($snapshotData?.resultArea || '');
   let isLoading: boolean = false;
   let isThrottled = false;
   let hasPendingChanges = false;
@@ -21,8 +19,6 @@
   // Event dispatcher
   const dispatch = createEventDispatcher<{
     message: { text: string; type: MessageType };
-    dataUpdated: { data: AppData };
-    snapshotUpdated: { snapshot: SnapshotData };
     switchTab: { tabName: string };
   }>();
 
@@ -55,7 +51,7 @@
     const selectedProviderName = selectedOption.getAttribute('data-provider-name') || '';
     const selectedModelName = selectedOption.getAttribute('data-model-name') || '';
 
-    const selectedPrompt = currentData.prompts.find(p => p.id === $selectedPromptId);
+    const selectedPrompt = $appData?.prompts.find(p => p.id === $selectedPromptId);
 
     if (!selectedPrompt) {
       dispatch('message', { text: '選択されたプロンプトが見つかりません', type: 'error' });
@@ -73,26 +69,14 @@
           modelName: selectedModelName,
           userPrompt: $userPrompt,
           selectedPrompt: selectedPrompt.content,
-          frameworkContent: currentData.frameworks[0].content.content
+          frameworkContent: $appData?.frameworks[0].content.content
         }
       });
 
       if (response.success) {
         const result = response.data;
         resultArea.set(result);
-
-         // イミュータブルな更新
-        const newSnapshot = structuredClone(currentSnapshot);
-        
-        newSnapshot.userPrompt = $userPrompt;
-        newSnapshot.selectedPromptId = $selectedPromptId;
-        newSnapshot.resultArea = result;
-        newSnapshot.selectedModelId = $selectedModelId;
-
-        dispatch('dataUpdated', { data: currentData });
-        dispatch('snapshotUpdated', { snapshot: newSnapshot });
-        await storageService.saveAppData(currentData);
-        await storageService.saveSnapshot(newSnapshot);
+        snapshotData?.update(current => current ? { ...current, userPrompt: $userPrompt, selectedPromptId: $selectedPromptId, resultArea: result, selectedModelId: $selectedModelId } : current);
         dispatch('message', { text: 'プロンプトの改善が完了しました', type: 'success' });
       } else {
         console.warn(response.error);
@@ -101,10 +85,7 @@
           // 親へのイベント通知とあわせて、スナップショットも直接更新して確実にタブを切り替える
           dispatch('switchTab', { tabName: 'settings' });
           try {
-            const newSnapshot = structuredClone(currentSnapshot);
-            newSnapshot.activeTab = 'settings';
-            await storageService.saveSnapshot(newSnapshot);
-            dispatch('snapshotUpdated', { snapshot: newSnapshot });
+            snapshotData?.update(current => current ? { ...current, activeTab: 'settings' } : current);
           } catch (e) {
             // 失敗しても致命的ではないため握りつぶす
           }
@@ -162,20 +143,13 @@
     resultArea.set('');
     selectedPromptId.set('');
 
-    const newSnapshot = structuredClone(currentSnapshot);
-
-    newSnapshot.userPrompt = '';
-    newSnapshot.selectedPromptId = '';
-    newSnapshot.resultArea = '';
-    storageService.saveSnapshot(newSnapshot); 
-    dispatch('snapshotUpdated', { snapshot: newSnapshot });
+    snapshotData?.update(current => current ? { ...current, userPrompt: '', selectedPromptId: '', resultArea: '' } : current);
     dispatch('message', { text: 'フィールドをリセットしました', type: 'success' });
   }
 
   const saveSnapshot = async () => {
-    const newSnapshot = structuredClone(currentSnapshot);
-    await storageService.saveSnapshot(newSnapshot);
-    dispatch('snapshotUpdated', { snapshot: newSnapshot });
+    const newSnapshot = structuredClone($snapshotData);
+    snapshotData.set(newSnapshot);
     hasPendingChanges = false;
   };
 
@@ -200,13 +174,13 @@
   const handleInput = (event: Event) => {
     const target = event.target as HTMLTextAreaElement;
     if (target.id === "userPrompt") {
-      currentSnapshot.userPrompt = target.value;
+      snapshotData?.update(current => current ? { ...current, userPrompt: target.value } : current);
     } else if (target.id === "promptSelect") {
-      currentSnapshot.selectedPromptId = target.value;
+      snapshotData?.update(current => current ? { ...current, selectedPromptId: target.value } : current);
     } else if (target.id === "resultArea") {
-      currentSnapshot.resultArea = target.value;
+      snapshotData?.update(current => current ? { ...current, resultArea: target.value } : current);
     }else if (target.id === "modelSelect") {
-      currentSnapshot.selectedModelId = target.value;
+      snapshotData?.update(current => current ? { ...current, selectedModelId: target.value } : current);
     }
     throttledSave();
   };
@@ -236,8 +210,8 @@
         on:input={handleInput}
         disabled={isLoading}>
         <option value="">実行モデルを選択してください</option>
-        {#each currentData.providers as provider}
-          {#each provider.models.filter(model => model.enabled) as model}
+        {#each $appData?.providers || [] as provider}
+          {#each provider?.models.filter((model: ModelInfo) => model.enabled) as model}
             <option value={model.id} data-provider-name={provider.name} data-model-name={model.name}>
               {provider.displayName} - {model.name}
             </option>
@@ -272,7 +246,7 @@
           disabled={isLoading}
           on:input={handleInput}>
           <option value="">選択してください</option>
-          {#each currentData.prompts as prompt}
+          {#each $appData?.prompts || [] as prompt}
             <option value={prompt.id}>
               {prompt.content.name || prompt.content.template.substring(0, 30) + '...'}
             </option>

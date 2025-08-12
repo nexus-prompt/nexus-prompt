@@ -1,15 +1,18 @@
 <script lang="ts">
-  import type { AppData, Prompt, MessageType, SnapshotData } from '../types';
+  import type { Prompt, MessageType } from '../types';
   import { storageService } from '../services/storage';
-  import { createEventDispatcher, onMount } from 'svelte';
+  import { createEventDispatcher, onMount, tick, getContext } from 'svelte';
+  import { fade, fly } from 'svelte/transition';
+  import { flip } from 'svelte/animate';
   import { writable } from 'svelte/store';
+  import { appData, snapshotData } from '../stores';
+  import type { Writable } from 'svelte/store';
   import { PromptViewModel, toPromptDsl } from '../promptops/dsl/prompt/renderer';
   import PromptEditor from './prompt-editor.svelte';
   
-  // Props
-  export let currentData: AppData;
-  export let currentSnapshot: SnapshotData;
-  export let viewContext: 'popup' | 'sidepanel' | 'unknown';
+  // Context: 親から共有された viewContext ストアを取得
+  const VIEW_CONTEXT = Symbol.for('viewContext');
+  const viewContext = getContext<Writable<'popup' | 'sidepanel' | 'unknown'>>(VIEW_CONTEXT);
 
   // Local state
   const promptViewModel = writable<PromptViewModel>({
@@ -32,29 +35,33 @@
   // Event dispatcher
   const dispatch = createEventDispatcher<{
     message: { text: string; type: MessageType };
-    dataUpdated: { data: AppData };
-    snapshotUpdated: { snapshot: SnapshotData };
     promptSelectionReset: void;
   }>();
 
   // Reactive: プロンプトリスト
-  $: promptList = currentData.prompts || [];
+  $: promptList = ($appData && $appData.prompts) ? $appData.prompts : [];
+
+  // Reactive: 環境フラグを一元化
+  let isHeadless: boolean;
+  let canUseSidePanel: boolean;
+  $: isHeadless = typeof navigator !== 'undefined' && /Headless/i.test(navigator.userAgent || '');
+  $: canUseSidePanel = Boolean((chrome as any)?.sidePanel?.open) && Boolean((chrome as any)?.windows?.getCurrent) && !isHeadless;
 
   onMount(async () => {
     // サイドパネルとして開かれ、編集対象が指定されているかチェック
-    if (viewContext === 'sidepanel' && currentSnapshot.editingTarget.type === 'prompt') {
+    if ($viewContext === 'sidepanel' && $snapshotData?.editingTarget.type === 'prompt') {
       // ID が無くても新規作成の編集ビューを開く
-      editingPromptId = currentSnapshot.editingTarget.id || null;
+      editingPromptId = $snapshotData.editingTarget.id || null;
       view = 'edit';
       await storageService.clearEditingTarget();
-      dispatch('snapshotUpdated', { snapshot: currentSnapshot });
+      // ストアを直接更新
+      snapshotData.update(current => current ? { ...current, editingTarget: { type: null, id: '' } } : null);
     }
   });
 
   // 親の onMount 完了後に子の初期化を強制したいケースへの対策：
   // 親から渡される currentData/currentSnapshot は初期化後に変わる可能性があるため、
   // 初回 tick 後に実行することで、親の初期化完了を待つ。
-  import { tick } from 'svelte';
   onMount(async () => {
     await tick();
   });
@@ -66,25 +73,23 @@
 
   async function openEditorInSidePanel(promptId: string): Promise<void> {
     // サイドパネル環境なら単純にエディタを開く
-    if (viewContext === 'sidepanel') {
+    if ($viewContext === 'sidepanel') {
       openEditor(promptId);
       return;
     }
 
     // サイドパネル API が利用できない（またはテスト環境）場合はフォールバック
-    const isHeadless = typeof navigator !== 'undefined' && /Headless/i.test(navigator.userAgent || '');
-    const canUseSidePanel = Boolean((chrome as any)?.sidePanel?.open) && Boolean((chrome as any)?.windows?.getCurrent) && !isHeadless;
     if (!canUseSidePanel) {
       openEditor(promptId);
       return;
     }
 
     try {
-      const newSnapshot = structuredClone(currentSnapshot);
-      newSnapshot.editingTarget = { type: 'prompt', id: promptId };
-      newSnapshot.activeTab = 'prompts';
-      await storageService.saveSnapshot(newSnapshot);
-      dispatch('snapshotUpdated', { snapshot: newSnapshot });
+      snapshotData.update(current => current ? {
+        ...current,
+        editingTarget: { type: 'prompt', id: promptId },
+        activeTab: 'prompts'
+      } : null);
 
       const currentWindow = await chrome.windows.getCurrent();
       await chrome.sidePanel.open({ windowId: currentWindow.id! });
@@ -105,25 +110,22 @@
 
   // 新規作成時にサイドパネルでエディタを開く
   async function openNewEditorInSidePanel(): Promise<void> {
-    if (viewContext === 'sidepanel') {
+    if ($viewContext === 'sidepanel') {
       openEditor(null);
       return;
     }
 
-    const isHeadless = typeof navigator !== 'undefined' && /Headless/i.test(navigator.userAgent || '');
-    const canUseSidePanel = Boolean((chrome as any)?.sidePanel?.open) && Boolean((chrome as any)?.windows?.getCurrent) && !isHeadless;
     if (!canUseSidePanel) {
       openEditor(null);
       return;
     }
 
     try {
-      const newSnapshot = structuredClone(currentSnapshot);
-      // id 空を新規作成のシグナルとして扱う
-      newSnapshot.editingTarget = { type: 'prompt', id: '' };
-      newSnapshot.activeTab = 'prompts';
-      await storageService.saveSnapshot(newSnapshot);
-      dispatch('snapshotUpdated', { snapshot: newSnapshot });
+      snapshotData.update(current => current ? {
+        ...current,
+        editingTarget: { type: 'prompt', id: '' }, // id 空を新規作成のシグナルとして扱う
+        activeTab: 'prompts'
+      } : null);
 
       const currentWindow = await chrome.windows.getCurrent();
       await chrome.sidePanel.open({ windowId: currentWindow.id! });
@@ -144,34 +146,36 @@
   async function deletePrompt(promptId: string): Promise<void> {
     if (confirm('このプロンプトを削除してもよろしいですか？')) {
       try {
-        deletingIds = new Set([...deletingIds, promptId]);
-        // イミュータブルな更新
-        const newData = structuredClone(currentData);
-        
-        // 削除対象のプロンプトのorderを取得
-        const deletedPrompt = newData.prompts.find(p => p.id === promptId);
-        const deletedOrder = deletedPrompt?.order || 0;
-        
-        // プロンプトを削除
-        newData.prompts = newData.prompts.filter(p => p.id !== promptId);
-        
-        // 削除されたorder以降のプロンプトのorderを-1する
-        newData.prompts.forEach(prompt => {
-          if (prompt.order > deletedOrder && prompt.order > 1) {
-            prompt.order -= 1;
-          }
+        deletingIds.add(promptId);
+        deletingIds = deletingIds; // for reactivity
+
+        appData.update(current => {
+          if (!current) return null;
+          const newData = structuredClone(current);
+          // 削除対象のプロンプトのorderを取得
+          const deletedPrompt = newData.prompts.find(p => p.id === promptId);
+          const deletedOrder = deletedPrompt?.order || 0;
+          
+          // プロンプトを削除
+          newData.prompts = newData.prompts.filter(p => p.id !== promptId);
+          
+          // 削除されたorder以降のプロンプトのorderを-1する
+          newData.prompts.forEach(prompt => {
+            if (prompt.order > deletedOrder && prompt.order > 1) {
+              prompt.order -= 1;
+            }
+          });
+          return newData;
         });
         
-        await storageService.saveAppData(newData);
-        
         dispatch('message', { text: 'プロンプトを削除しました', type: 'success' });
-        dispatch('dataUpdated', { data: newData });
         dispatch('promptSelectionReset');
       } catch (error) {
         console.error('プロンプト削除エラー:', error);
         dispatch('message', { text: 'プロンプトの削除に失敗しました', type: 'error' });
       } finally {
-        deletingIds = new Set([...deletingIds].filter(id => id !== promptId));
+        deletingIds.delete(promptId);
+        deletingIds = deletingIds; // for reactivity
       }
     }
   }
@@ -193,34 +197,33 @@
     }
 
     try {
-      // イミュータブルな更新
-      const newData = structuredClone(currentData);
-      
-      $promptViewModel.name = $promptViewModel.name.trim() || 'プロンプト';
-      if (editingPromptId) {
-        const prompt = newData.prompts.find(p => p.id === editingPromptId);
-        if (prompt) {
-          prompt.content = toPromptDsl($promptViewModel);
-          prompt.updatedAt = new Date().toISOString();
+      appData.update(current => {
+        if (!current) return null;
+        const newData = structuredClone(current);
+        $promptViewModel.name = $promptViewModel.name.trim() || 'プロンプト';
+        if (editingPromptId) {
+          const prompt = newData.prompts.find(p => p.id === editingPromptId);
+          if (prompt) {
+            prompt.content = toPromptDsl($promptViewModel);
+            prompt.updatedAt = new Date().toISOString();
+          }
+        } else {
+          const id = crypto.randomUUID();
+          $promptViewModel.id = id;
+          const newPrompt: Prompt = {
+            id: id,
+            content: toPromptDsl($promptViewModel),
+            order: newData.prompts.length + 1,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+          };
+          newData.prompts.push(newPrompt);
         }
-      } else {
-        const id = crypto.randomUUID();
-        $promptViewModel.id = id;
-        const newPrompt: Prompt = {
-          id: id,
-          content: toPromptDsl($promptViewModel),
-          order: newData.prompts.length + 1,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-        newData.prompts.push(newPrompt);
-      }
-
-      await storageService.saveAppData(newData);
+        return newData;
+      });
       
       dispatch('promptSelectionReset');
       dispatch('message', { text: 'プロンプトを保存しました', type: 'success' });
-      dispatch('dataUpdated', { data: newData });
       
       // 保存後は一覧へ戻る
       view = 'list';
@@ -242,36 +245,36 @@
 
 <div class="prompts-container">
   {#if view === 'list'}
-    <div class="prompt-header">
-      <button id="newPromptButton" class="primary-button" data-testid="new-prompt-button" on:click={openNewEditorInSidePanel}>新規作成</button>
-    </div>
-    <div id="promptList" data-testid="prompt-list" class="prompt-list">
-      {#each promptList as prompt}
-      <div class="prompt-item" data-testid="prompt-item">
-        <div class="prompt-info">
-          <h4>{prompt.content.name}</h4>
-          <p>{prompt.content.template.substring(0, 50)}...</p>
-        </div>
-        <div class="prompt-actions">
-          <button class="edit-button" on:click={() => openEditorInSidePanel(prompt.id)} disabled={deletingIds.has(prompt.id)}>編集</button>
-          <button class="delete-button" on:click={() => deletePrompt(prompt.id)} disabled={deletingIds.has(prompt.id)}>{deletingIds.has(prompt.id) ? '削除中...' : '削除'}</button>
-        </div>
+    <div in:fade={{ duration: 200 }}>
+      <div class="prompt-header">
+        <button id="newPromptButton" class="primary-button" data-testid="new-prompt-button" on:click={openNewEditorInSidePanel}>新規作成</button>
       </div>
-      {/each}
+      <div id="promptList" data-testid="prompt-list" class="prompt-list">
+        {#each promptList as prompt (prompt.id)}
+        <div class="prompt-item" data-testid="prompt-item" in:fly={{ y: 20, duration: 250 }} animate:flip>
+          <div class="prompt-info">
+            <h4>{prompt.content.name}</h4>
+            <p>{prompt.content.template.substring(0, 50)}...</p>
+          </div>
+          <div class="prompt-actions">
+            <button class="edit-button" on:click={() => openEditorInSidePanel(prompt.id)} disabled={deletingIds.has(prompt.id)}>編集</button>
+            <button class="delete-button" on:click={() => deletePrompt(prompt.id)} disabled={deletingIds.has(prompt.id)}>{deletingIds.has(prompt.id) ? '削除中...' : '削除'}</button>
+          </div>
+        </div>
+        {/each}
+      </div>
     </div>
   {:else if view === 'edit'}
-    <PromptEditor
-      {currentData}
-      promptId={editingPromptId}
-      on:message={(e) => dispatch('message', e.detail)}
-      on:dataUpdated={(e) => dispatch('dataUpdated', e.detail)}
-      on:promptSelectionReset={() => dispatch('promptSelectionReset')}
-      on:back={backToList}
-    />
+    <div in:fade={{ duration: 200 }}>
+      <PromptEditor
+        promptId={editingPromptId}
+        on:message={(e) => dispatch('message', e.detail)}
+        on:promptSelectionReset={() => dispatch('promptSelectionReset')}
+        on:back={backToList}
+      />
+    </div>
   {/if}
 </div>
-
-<!-- モーダルは廃止（エディタページへ遷移） -->
 
 <style>
   .prompts-container {

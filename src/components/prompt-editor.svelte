@@ -6,7 +6,6 @@
   import { storageService } from '../services/storage';
 
   // Props
-  export let currentData: AppData;
   export let promptId: string | null = null; // nullなら新規
 
   // Local state
@@ -93,7 +92,6 @@
       await storageService.saveAppData(newData);
       dispatch('promptSelectionReset');
       dispatch('message', { text: 'プロンプトを保存しました', type: 'success' });
-      dispatch('dataUpdated', { data: newData });
       dispatch('back');
     } catch (e) {
       console.error('プロンプト保存エラー:', e);

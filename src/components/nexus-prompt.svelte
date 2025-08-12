@@ -1,39 +1,20 @@
 <script lang="ts">
   import type { AppData, MessageType, SnapshotData } from '../types';
-  import { onMount } from 'svelte';
-  import { storageService, STORAGE_KEY, SNAPSHOT_STORAGE_KEY } from '../services/storage';
+  import { onMount, setContext } from 'svelte';
+  import { STORAGE_KEY, SNAPSHOT_STORAGE_KEY } from '../services/storage';
   import Settings from './settings.svelte'; 
   import Frameworks from './frameworks.svelte';
   import Prompts from './prompts.svelte';
   import PromptImprovement from './prompt-improvement.svelte';
-  import { writable } from 'svelte/store';
+  import { writable, get } from 'svelte/store';
+  import { appData, snapshotData, initializeStores } from '../stores';
   import '../chrome-mock'; // 開発環境用のChrome APIモック
 
-  // UIコンテキスト（popupかsidepanelか）を保持するストア
   const viewContext = writable<'popup' | 'sidepanel' | 'unknown'>('unknown');
-  // 親 onMount の初期化が完了したかどうか
-  let parentReady = false;
+  const VIEW_CONTEXT = Symbol.for('viewContext');
+  setContext(VIEW_CONTEXT, viewContext);
 
   // Local state
-  const currentData = writable<AppData>({
-    providers: [],
-    frameworks: [],
-    prompts: [],
-    settings: {
-      defaultFrameworkId: '',
-      version: '1.1.0'
-    },
-  });
-  const currentSnapshot = writable<SnapshotData>({
-    userPrompt: '',
-    selectedPromptId: '',
-    resultArea: '',
-    selectedModelId: '',
-    activeTab: 'main',
-    editingTarget: { type: null, id: '' }
-  });
-  const selectedPromptId = writable('');
-  
   let messageText: string = '';
   let messageType: MessageType = 'info';
   let showMessage: boolean = false;
@@ -43,42 +24,26 @@
   const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }, areaName: string) => {
     if (areaName !== 'local') return;
 
-    // AppDataが変更された場合、ローカルの状態を更新
     if (changes[STORAGE_KEY]) {
-      const newData = changes[STORAGE_KEY].newValue as AppData;
-      if (newData) {
-        currentData.set(newData);
+      const newData = changes[STORAGE_KEY].newValue as AppData | null;
+      if (newData && JSON.stringify(get(appData)) !== JSON.stringify(newData)) {
+        appData.setFromStorage(newData);
         console.log('AppData has been updated from storage change.');
       }
     }
 
     if (changes[SNAPSHOT_STORAGE_KEY]) {
-      const newSnapshot = changes[SNAPSHOT_STORAGE_KEY].newValue as SnapshotData;
-      if (newSnapshot) {
-        currentSnapshot.set(newSnapshot);
+      const newSnapshot = changes[SNAPSHOT_STORAGE_KEY].newValue as SnapshotData | null;
+      if (newSnapshot && JSON.stringify(get(snapshotData)) !== JSON.stringify(newSnapshot)) {
+        snapshotData.setFromStorage(newSnapshot);
         console.log('Snapshot has been updated from storage change.');
       }
     }
-
-    // 必要に応じて他のキー（例: SNAPSHOT_STORAGE_KEY）の変更もここでハンドルできる
   };
 
   onMount(() => {
-    const initialize = async () => {
-      // AppData の初期取得（なければ初期化してから再取得）
-      try {
-        currentData.set(await storageService.getAppData());
-      } catch (e) {
-        console.warn('AppDataが未初期化のため初期化します:', e);
-        await storageService.initializeAppData();
-        currentData.set(await storageService.getAppData());
-      }
-
-      // Snapshot は常にデフォルトで初期化されるよう getSnapshot 側で保証
-      currentSnapshot.set(await storageService.getSnapshot());
-      selectedPromptId.set($currentSnapshot.selectedPromptId);
-      
-      try {
+    initializeStores().then(() => {
+       try {
         const isPopupView = (() => {
           try {
             const views = (chrome.extension as any)?.getViews?.({ type: 'popup' }) ?? [];
@@ -94,17 +59,11 @@
           viewContext.set('sidepanel');
         }
       } catch (e) {
-        // 判定失敗時は保守的にポップアップ扱い
         console.warn('UIコンテキスト判定エラー。ポップアップとして扱います。', e);
         viewContext.set('popup');
       }
-    };
-    (async () => {
-      await initialize();
-      parentReady = true;
-    })();
+    });
 
-    // リスナーを登録
     chrome.storage.onChanged.addListener(handleStorageChange);
 
     return () => {
@@ -113,18 +72,14 @@
   });
 
   async function switchTab(tabName: string): Promise<void> {
-    const newSnapshot = structuredClone($currentSnapshot);
-    newSnapshot.activeTab = tabName as 'main' | 'prompts' | 'frameworks' | 'settings';
-    currentSnapshot.set(newSnapshot);
-    storageService.saveSnapshot(newSnapshot);
+    snapshotData.update((current: SnapshotData | null) => {
+      if (!current) return null;
+      return { ...current, activeTab: tabName as 'main' | 'prompts' | 'frameworks' | 'settings' };
+    });
   }
 
   async function resetPromptSelection(): Promise<void> {
-    const newSnapshot = structuredClone($currentSnapshot);
-    newSnapshot.selectedPromptId = '';
-    currentSnapshot.set(newSnapshot);
-    storageService.saveSnapshot(newSnapshot);
-    selectedPromptId.set('');
+    snapshotData.update((current: SnapshotData | null) => current ? { ...current, selectedPromptId: '' } : null);
   }
 
   function displayMessage(text: string, type: MessageType = 'info'): void {
@@ -151,14 +106,6 @@
     }
   }
 
-  function handleDataUpdated(event: CustomEvent<{ data: AppData }>): void {
-    currentData.set(event.detail.data);
-  }
-
-  function handleSnapshotUpdated(event: CustomEvent<{ snapshot: SnapshotData }>): void {
-    currentSnapshot.set(event.detail.snapshot);
-  }
-
   async function handlePromptSelectionReset(): Promise<void> {
     await resetPromptSelection();
   }
@@ -171,78 +118,58 @@
 <div class="container" id="nexus-prompt" data-testid="nexus-prompt">
   <!-- タブナビゲーション -->
   <div class="tabs">
-    <button 
-      class="tab-button {$currentSnapshot.activeTab === 'main' ? 'active' : ''}" 
-      on:click={() => switchTab('main')}>
-      メイン画面
-    </button>
-    <button 
-      class="tab-button {$currentSnapshot.activeTab === 'prompts' ? 'active' : ''}" 
-      on:click={() => switchTab('prompts')}>
-      LLMプロンプト管理
-    </button>
-    <button 
-    class="tab-button {$currentSnapshot.activeTab === 'frameworks' ? 'active' : ''}" 
-      on:click={() => switchTab('frameworks')}>
-      フレームワーク管理
-    </button>
-    <button 
-      class="tab-button {$currentSnapshot.activeTab === 'settings' ? 'active' : ''}" 
-      on:click={() => switchTab('settings')}>
-      設定
-    </button>
+    {#if $snapshotData}
+      <button 
+        class="tab-button {$snapshotData.activeTab === 'main' ? 'active' : ''}" 
+        on:click={() => switchTab('main')}>
+        メイン画面
+      </button>
+      <button 
+        class="tab-button {$snapshotData.activeTab === 'prompts' ? 'active' : ''}" 
+        on:click={() => switchTab('prompts')}>
+        LLMプロンプト管理
+      </button>
+      <button 
+      class="tab-button {$snapshotData.activeTab === 'frameworks' ? 'active' : ''}" 
+        on:click={() => switchTab('frameworks')}>
+        フレームワーク管理
+      </button>
+      <button 
+        class="tab-button {$snapshotData.activeTab === 'settings' ? 'active' : ''}" 
+        on:click={() => switchTab('settings')}>
+        設定
+      </button>
+    {/if}
   </div>
 
-  <!-- メイン画面（プロンプト改善） -->
-  {#if $currentSnapshot.activeTab === 'main' && parentReady}
-  <div id="main" class="tab-content active">
-    <PromptImprovement 
-      currentData={$currentData}
-      currentSnapshot={$currentSnapshot}
-      selectedPromptIdFromParent={$selectedPromptId}
-      on:message={handleMessage}
-      on:dataUpdated={handleDataUpdated}
-      on:snapshotUpdated={handleSnapshotUpdated}
-      on:switchTab={handleSwitchTab}
-    />
-  </div>
-  {/if}
+  {#if $appData && $snapshotData}
+    <!-- メイン画面（プロンプト改善） -->
+    {#if $snapshotData.activeTab === 'main'}
+    <div id="main" class="tab-content active">
+      <PromptImprovement on:message={handleMessage} on:switchTab={handleSwitchTab} selectedPromptIdFromParent={$snapshotData?.selectedPromptId || ''} />
+    </div>
+    {/if}
 
-  <!-- LLMプロンプト管理 -->
-  {#if $currentSnapshot.activeTab === 'prompts' && parentReady}
-  <div id="prompts" class="tab-content active">
-    <Prompts
-      currentData={$currentData}
-      currentSnapshot={$currentSnapshot}
-      viewContext={$viewContext}
-      on:message={handleMessage}
-      on:dataUpdated={handleDataUpdated}
-      on:snapshotUpdated={handleSnapshotUpdated}
-      on:promptSelectionReset={handlePromptSelectionReset}
-    />
-  </div>
-  {/if}
+    <!-- LLMプロンプト管理 -->
+    {#if $snapshotData.activeTab === 'prompts'}
+    <div id="prompts" class="tab-content active">
+      <Prompts on:message={handleMessage} on:promptSelectionReset={handlePromptSelectionReset} />
+    </div>
+    {/if}
 
-  <!-- フレームワーク管理 -->
-  {#if $currentSnapshot.activeTab === 'frameworks'}
-  <div id="frameworks" class="tab-content active">
-    <Frameworks
-      currentData={$currentData}
-      on:message={handleMessage}
-      on:dataUpdated={handleDataUpdated}
-      on:promptSelectionReset={handlePromptSelectionReset}
-    />
-  </div>
-  {/if}
+    <!-- フレームワーク管理 -->
+    {#if $snapshotData.activeTab === 'frameworks'}
+    <div id="frameworks" class="tab-content active">
+      <Frameworks on:message={handleMessage} on:promptSelectionReset={handlePromptSelectionReset} />
+    </div>
+    {/if}
 
-  <!-- 設定（APIキー） -->
-  {#if $currentSnapshot.activeTab === 'settings'}
-  <div id="settings" class="tab-content active">
-    <Settings 
-      on:message={handleMessage}
-      on:dataUpdated={handleDataUpdated}
-    />
-  </div>
+    <!-- 設定（APIキー） -->
+    {#if $snapshotData.activeTab === 'settings'}
+    <div id="settings" class="tab-content active">
+      <Settings on:message={handleMessage} />
+    </div>
+    {/if}
   {/if}
 </div>
 
