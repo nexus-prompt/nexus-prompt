@@ -1,42 +1,45 @@
 <script lang="ts">
-  import type { MessageType } from '../types';
-  import { createEventDispatcher, onMount } from 'svelte';
-  import { writable } from 'svelte/store';
-  import { appData } from '../stores';
+  import { appData, showToast } from '../stores';
   import { FrameworkViewModel, createFrameworkViewModel, toFrameworkDsl } from '../promptops/dsl/framework/renderer';
   
   // Local state
-  const frameworkViewModel = writable<FrameworkViewModel>({
+  let frameworkViewModel = $state<FrameworkViewModel>({
     id: '',
     name: '',
     content: '',
     metadata: {}
   });
-  let isLoading: boolean = false;
+  let isLoading = $state(false);
+  let initialized = $state(false);
   
   // Constants
   const MAX_FRAMEWORK_CONTENT_LENGTH = 20000;
 
-  // Event dispatcher
-  const dispatch = createEventDispatcher<{
-    message: { text: string; type: MessageType };
-    promptSelectionReset: void;
-  }>();
+  // Event handler
+  let { promptSelectionReset } = $props();
 
-  onMount(() => {
-    console.log('currentData.frameworks[0]?.content', $appData?.frameworks[0]?.content);
-    const vm = createFrameworkViewModel($appData?.frameworks[0]?.content);
-    frameworkViewModel.set(vm);
+  function validateFrameworkViewModel(vm: FrameworkViewModel, maxLength: number): string | null {
+    if (!vm.content.trim()) {
+      return 'フレームワーク内容を入力してください';
+    }
+    if (vm.content.length > maxLength) {
+      return `フレームワーク内容は${maxLength.toLocaleString()}文字以内で入力してください`;
+    }
+    return null;
+  }
+
+  // 初期描画時に一度だけ AppData からVMを構築
+  $effect(() => {
+    if (!initialized && $appData?.frameworks?.[0]?.content) {
+      frameworkViewModel = createFrameworkViewModel($appData.frameworks[0].content);
+      initialized = true;
+    }
   });
 
   async function saveFramework(): Promise<void> {
-    if (!$frameworkViewModel.content.trim()) {
-      dispatch('message', { text: 'フレームワーク内容を入力してください', type: 'error' });
-      return;
-    }
-
-    if ($frameworkViewModel.content.length > MAX_FRAMEWORK_CONTENT_LENGTH) {
-      dispatch('message', { text: `フレームワーク内容は${MAX_FRAMEWORK_CONTENT_LENGTH.toLocaleString()}文字以内で入力してください`, type: 'error' });
+    const validationError = validateFrameworkViewModel(frameworkViewModel, MAX_FRAMEWORK_CONTENT_LENGTH);
+    if (validationError) {
+      showToast(validationError, 'error');
       return;
     }
 
@@ -48,7 +51,7 @@
           if (!current?.frameworks?.[0]) return current;
 
           const now = new Date().toISOString();
-          const fw = toFrameworkDsl($frameworkViewModel);
+          const fw = toFrameworkDsl(frameworkViewModel);
           const updatedFrameworks = current.frameworks.map((f, idx) =>
             idx === 0 ? { ...f, content: fw, updatedAt: now } : f
           );
@@ -56,12 +59,12 @@
           return { ...current, frameworks: updatedFrameworks };
         });
         
-        dispatch('promptSelectionReset');
-        dispatch('message', { text: 'フレームワークを保存しました', type: 'success' });
+        promptSelectionReset();
+        showToast('フレームワークを保存しました', 'success');
       }
     } catch (error) {
       console.error('フレームワークの保存エラー:', error);
-      dispatch('message', { text: 'フレームワークの保存に失敗しました', type: 'error' });
+      showToast('フレームワークの保存に失敗しました', 'error');
     } finally {
       isLoading = false;
     }
@@ -73,7 +76,7 @@
     <label for="frameworkContent">プロンプト生成フレームワーク</label>
     <textarea 
       id="frameworkContent"
-      bind:value={$frameworkViewModel.content}
+      bind:value={frameworkViewModel.content}
       disabled={isLoading}
       rows="22" 
       data-testid="framework-content-input"
@@ -83,7 +86,7 @@
   <button 
     id="saveFramework" 
     class="primary-button" 
-    on:click={saveFramework} 
+    onclick={saveFramework} 
     disabled={isLoading}
     data-testid="save-framework-button"
   >

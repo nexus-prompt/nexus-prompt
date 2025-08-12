@@ -1,48 +1,34 @@
 <script lang="ts">
-  import type { MessageType, ModelInfo } from '../types';
-  import { appData, snapshotData } from '../stores';
-  import { createEventDispatcher, onMount, onDestroy } from 'svelte';
+  import type { ModelInfo } from '../types';
+  import { appData, snapshotData, showToast } from '../stores';
+  import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
 
-  // Props
-  export let selectedPromptIdFromParent: string 
+  // Event handler, Props
+  let { switchTab, selectedPromptIdFromParent } = $props();
 
   // Local state
   const userPrompt = writable($snapshotData?.userPrompt || '');
   const selectedPromptId = writable(selectedPromptIdFromParent);
   const selectedModelId = writable($snapshotData?.selectedModelId || '');
   const resultArea = writable($snapshotData?.resultArea || '');
-  let isLoading: boolean = false;
-  let isThrottled = false;
-  let hasPendingChanges = false;
-
-  // Event dispatcher
-  const dispatch = createEventDispatcher<{
-    message: { text: string; type: MessageType };
-    switchTab: { tabName: string };
-  }>();
+  let isLoading = $state(false);
+  let isThrottled = $state(false);
+  let hasPendingChanges = $state(false);
 
   // コンポーネントがマウントされた時に、保存されている下書きを読み込む
   onMount(async () => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
   });
 
-  // 親の onMount 完了後に子の初期化を強制したいケースへの対策：
-  // 親から渡される currentData/currentSnapshot は初期化後に変わる可能性があるため、
-  // 初回 tick 後に実行することで、親の初期化完了を待つ。
-  import { tick } from 'svelte';
-  onMount(async () => {
-    await tick();
-  });
-
   async function improvePrompt(): Promise<void> {
     if (!$userPrompt.trim() || !$selectedPromptId) {
-      dispatch('message', { text: 'プロンプトとLLMプロンプトの両方を入力・選択してください', type: 'error' });
+      showToast('プロンプトとLLMプロンプトの両方を入力・選択してください', 'error');
       return;
     }
 
     if (!$selectedModelId) {
-      dispatch('message', { text: '実行モデルを選択してください', type: 'error' });
+      showToast('実行モデルを選択してください', 'error');
       return;
     }
 
@@ -54,13 +40,13 @@
     const selectedPrompt = $appData?.prompts.find(p => p.id === $selectedPromptId);
 
     if (!selectedPrompt) {
-      dispatch('message', { text: '選択されたプロンプトが見つかりません', type: 'error' });
+      showToast('選択されたプロンプトが見つかりません', 'error');
       return;
     }
 
     try {
       isLoading = true;
-      dispatch('message', { text: 'プロンプトを改善中です...', type: 'info' });
+      showToast('プロンプトを改善中です...', 'info');
 
       const response = await chrome.runtime.sendMessage({
         type: 'IMPROVE_PROMPT',
@@ -77,27 +63,27 @@
         const result = response.data;
         resultArea.set(result);
         snapshotData?.update(current => current ? { ...current, userPrompt: $userPrompt, selectedPromptId: $selectedPromptId, resultArea: result, selectedModelId: $selectedModelId } : current);
-        dispatch('message', { text: 'プロンプトの改善が完了しました', type: 'success' });
+        showToast('プロンプトの改善が完了しました', 'success');
       } else {
         console.warn(response.error);
         if (response.error.includes('APIキーが設定されていません')) {
-          dispatch('message', { text: 'APIキーを設定してください', type: 'error' });
+          showToast('APIキーを設定してください', 'error');
           // 親へのイベント通知とあわせて、スナップショットも直接更新して確実にタブを切り替える
-          dispatch('switchTab', { tabName: 'settings' });
+          switchTab('settings');
           try {
             snapshotData?.update(current => current ? { ...current, activeTab: 'settings' } : current);
           } catch (e) {
             // 失敗しても致命的ではないため握りつぶす
           }
         } else if (response.error.includes('fetch')) {
-          dispatch('message', { text: 'ネットワーク接続に問題があるようです。接続を確認してください。', type: 'error' });
+          showToast('ネットワーク接続に問題があるようです。接続を確認してください。', 'error');
         } else {
-          dispatch('message', { text: `エラー: ${response.error}`, type: 'error' });
+          showToast(`エラー: ${response.error}`, 'error');
         }
       }
     } catch (error) {
       console.error('メッセージ送信エラー:', error);
-      dispatch('message', { text: 'プロンプトの改善中に予期せぬエラーが発生しました。', type: 'error' });
+      showToast('プロンプトの改善中に予期せぬエラーが発生しました。', 'error');
     } finally {
       isLoading = false;
     }
@@ -105,14 +91,14 @@
 
   function copyResult(): void {
     if (!$resultArea.trim()) {
-      dispatch('message', { text: 'コピーする内容がありません', type: 'error' });
+      showToast('コピーする内容がありません', 'error');
       return;
     }
 
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText($resultArea)
         .then(() => {
-          dispatch('message', { text: 'クリップボードにコピーしました', type: 'success' });
+          showToast('クリップボードにコピーしました', 'success');
         })
         .catch((err) => {
           console.warn('クリップボードへのコピーに失敗:', err);
@@ -130,10 +116,10 @@
       textarea.select();
       try {
         document.execCommand('copy');
-        dispatch('message', { text: 'クリップボードにコピーしました', type: 'success' });
+        showToast('クリップボードにコピーしました', 'success');
       } catch (err) {
         console.warn('コピーに失敗:', err);
-        dispatch('message', { text: 'コピーに失敗しました', type: 'error' });
+        showToast('コピーに失敗しました', 'error');
       }
     }
   }
@@ -144,7 +130,7 @@
     selectedPromptId.set('');
 
     snapshotData?.update(current => current ? { ...current, userPrompt: '', selectedPromptId: '', resultArea: '' } : current);
-    dispatch('message', { text: 'フィールドをリセットしました', type: 'success' });
+    showToast('フィールドをリセットしました', 'success');
   }
 
   // ストア更新時に自動保存されるため、明示保存は不要
@@ -203,7 +189,7 @@
         data-testid="model-select"
         class="model-select"
         bind:value={$selectedModelId}
-        on:input={handleInput}
+        oninput={handleInput}
         disabled={isLoading}>
         <option value="">実行モデルを選択してください</option>
         {#each $appData?.providers || [] as provider}
@@ -221,7 +207,7 @@
       <div class="form-group">
         <div class="label-with-reset">
           <label for="userPrompt">LLMで実行するプロンプト</label>
-          <button class="reset-button" on:click={resetFields} disabled={isLoading}>リセット</button>
+          <button class="reset-button" onclick={resetFields} disabled={isLoading}>リセット</button>
         </div>
         <textarea 
           id="userPrompt"
@@ -229,7 +215,7 @@
           bind:value={$userPrompt}
           disabled={isLoading}
           rows="15" 
-          on:input={handleInput}
+          oninput={handleInput}
           placeholder="改善したいプロンプトを入力してください">
         </textarea>
       </div>
@@ -240,7 +226,7 @@
           data-testid="prompt-select"
           bind:value={$selectedPromptId}
           disabled={isLoading}
-          on:input={handleInput}>
+          oninput={handleInput}>
           <option value="">選択してください</option>
           {#each $appData?.prompts || [] as prompt}
             <option value={prompt.id}>
@@ -249,7 +235,7 @@
           {/each}
         </select>
       </div>
-      <button id="applyButton" data-testid="apply-button" class="primary-button" on:click={improvePrompt} disabled={isLoading}>
+      <button id="applyButton" data-testid="apply-button" class="primary-button" onclick={improvePrompt} disabled={isLoading}>
         {#if isLoading}処理中...{:else}適用{/if}
       </button>
     </div>
@@ -261,11 +247,11 @@
           data-testid="result-area"
           bind:value={$resultArea}
           rows="20" 
-          on:input={handleInput}
+          oninput={handleInput}
           placeholder="改善結果がここに表示されます">
         </textarea>
       </div>
-      <button id="copyButton" class="secondary-button" on:click={copyResult} disabled={!resultArea}>コピー</button>
+      <button id="copyButton" class="secondary-button" onclick={copyResult} disabled={!resultArea}>コピー</button>
     </div>
   </div>
 
