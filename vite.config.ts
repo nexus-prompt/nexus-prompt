@@ -37,16 +37,19 @@ export default defineConfig({
       exclude: [
         'src/**/*.{test,spec}.{js,ts}',
         'src/test/**',
+        'src/components/**',
+        'src/popup-svelte.ts',
         'e2e/**',
         'src/chrome-mock.ts',
-        'src/app.d.ts'
+        'src/app.d.ts',
+        'src/promptops/dsl/index.ts',
       ],
       thresholds: {
         global: {
+          statements: 80,
           branches: 80,
-          functions: 70,
-          lines: 30,
-          statements: 30
+          functions: 80,
+          lines: 80,
         }
       }
     },

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { appData, showToast } from '../stores';
-  import { FrameworkViewModel, createFrameworkViewModel, toFrameworkDsl } from '../promptops/dsl/framework/renderer';
+  import { type FrameworkViewModel, createFrameworkViewModel, toFrameworkDsl } from '../promptops/dsl/framework/renderer';
   
   // Local state
   let frameworkViewModel = $state<FrameworkViewModel>({

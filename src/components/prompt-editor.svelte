@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { Prompt } from '../types';
   
-  import { PromptViewModel, createPromptViewModel, toPromptDsl } from '../promptops/dsl/prompt/renderer';
+  import { type PromptViewModel, createPromptViewModel, toPromptDsl } from '../promptops/dsl/prompt/renderer';
   import { storageService } from '../services/storage';
   import { showToast, entitlements } from '../stores';
 
@@ -46,6 +46,10 @@
         const p = latest.prompts.find((pp) => pp.id === promptId);
         if (p) {
           promptViewModel = createPromptViewModel(p.content);
+        } else {
+          console.warn(`Prompt with id "${promptId}" not found. Navigating back to the list.`);
+          showToast('指定されたプロンプトが見つかりませんでした。', 'error');
+          backToList();
         }
       } else {
         promptViewModel = {
@@ -174,5 +178,3 @@
   .form-group { display: flex; flex-direction: column; gap: 8px; }
   .actions { display: flex; gap: 10px; }
 </style>
-
-
