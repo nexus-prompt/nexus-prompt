@@ -43,15 +43,18 @@
     try {
       isLoading = true;
 
-      const fw = toFrameworkDsl($frameworkViewModel);
+      if ($appData?.frameworks[0]) {
+        appData.update((current) => {
+          if (!current?.frameworks?.[0]) return current;
 
-       // イミュータブルな更新
-      const newData = structuredClone($appData);
+          const now = new Date().toISOString();
+          const fw = toFrameworkDsl($frameworkViewModel);
+          const updatedFrameworks = current.frameworks.map((f, idx) =>
+            idx === 0 ? { ...f, content: fw, updatedAt: now } : f
+          );
 
-      if (newData?.frameworks[0]) {
-        newData.frameworks[0].content = fw;
-        newData.frameworks[0].updatedAt = new Date().toISOString();
-        appData.set(newData);
+          return { ...current, frameworks: updatedFrameworks };
+        });
         
         dispatch('promptSelectionReset');
         dispatch('message', { text: 'フレームワークを保存しました', type: 'success' });
