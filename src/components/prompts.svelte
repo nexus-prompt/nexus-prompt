@@ -135,7 +135,7 @@
       <div class="prompt-header">
         <button id="newPromptButton" class="primary-button" data-testid="new-prompt-button" onclick={openNewEditorInSidePanel}>新規作成</button>
       </div>
-      <div id="promptList" data-testid="prompt-list" class="prompt-list">
+      <div id="promptList" data-testid="prompt-list" class="prompt-list {$viewContext === 'popup' ? 'popup-view' : ''}">
         {#each promptListSorted as prompt (prompt.id)}
         <div class="prompt-item" data-testid="prompt-item" in:fly={{ y: 20, duration: 250 }} animate:flip>
           <div class="prompt-info">
@@ -162,105 +162,38 @@
 </div>
 
 <style>
+  @reference "tailwindcss";
   .prompts-container {
-    padding: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
+    @apply flex flex-col p-0 h-full gap-4 min-h-[500px];
+  }
+  .prompt-info h4 { 
+    @apply text-sm text-gray-900 mb-1;
+  }
+  .prompt-info p { 
+    @apply text-xs text-gray-600 m-0;
   }
 
   .prompt-header {
-    margin-bottom: 0;
+    @apply mb-3;
   }
 
   .prompt-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    flex: 1;
-    overflow-y: auto;
+    @apply flex flex-col gap-2.5 max-h-[500px] overflow-y-auto;
+  }
+
+  .prompt-list.popup-view {
+    @apply max-h-[400px];
   }
 
   .prompt-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 15px;
-    background-color: #f8f9fa;
-    border-radius: 8px;
-    transition: background-color 0.2s ease;
+    @apply flex justify-between items-center p-4 bg-[#f8f9fa] rounded-lg transition-colors;
   }
 
   .prompt-item:hover {
-    background-color: #e9ecef;
-  }
-
-  .prompt-info h4 {
-    font-size: 14px;
-    margin-bottom: 5px;
-    color: #212529;
-  }
-
-  .prompt-info p {
-    font-size: 12px;
-    color: #6c757d;
-    margin: 0;
+    @apply bg-[#e9ecef];
   }
 
   .prompt-actions {
-    display: flex;
-    gap: 10px;
+    @apply flex gap-2.5;
   }
-
-  .edit-button,
-  .delete-button {
-    padding: 6px 12px;
-    border: none;
-    border-radius: 4px;
-    font-size: 12px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .edit-button {
-    background-color: #28a745;
-    color: white;
-  }
-
-  .edit-button:hover {
-    background-color: #218838;
-  }
-
-  .delete-button {
-    background-color: #dc3545;
-    color: white;
-  }
-
-  .delete-button:hover {
-    background-color: #c82333;
-  }
-
-  .primary-button {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-  }
-
-  .primary-button {
-    background-color: #007bff;
-    color: white;
-  }
-
-  .primary-button:hover {
-    background-color: #0056b3;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  /* 旧モーダル関連のスタイルは未使用のため削除 */
 </style> 

@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { appData, showToast } from '../stores';
+  import { autosize } from '../actions/autosize';
+  import { appData, showToast, viewContext } from '../stores';
   import { type FrameworkViewModel, createFrameworkViewModel, toFrameworkDsl } from '../promptops/dsl/framework/renderer';
   
   // Local state
@@ -78,78 +79,30 @@
       id="frameworkContent"
       bind:value={frameworkViewModel.content}
       disabled={isLoading}
-      rows="22" 
+      use:autosize={{ maxRows: 20, minRows: 15, fixedRows: $viewContext === 'popup' ? 18 : undefined }}
       data-testid="framework-content-input"
       placeholder="フレームワーク情報を入力してください（例：コンテキスト、条件設定、対象など）">
     </textarea>
   </div>
-  <button 
-    id="saveFramework" 
-    class="primary-button" 
-    onclick={saveFramework} 
-    disabled={isLoading}
-    data-testid="save-framework-button"
-  >
-    {#if isLoading}保存中...{:else}保存{/if}
-  </button>
+  <div class="input-button-group">
+    <button 
+      id="saveFramework" 
+      class="primary-button" 
+      onclick={saveFramework} 
+      disabled={isLoading}
+      data-testid="save-framework-button"
+    >
+      {#if isLoading}保存中...{:else}保存{/if}
+    </button>
+  </div>
 </div>
 
 <style>
+  @reference "tailwindcss";
   .framework-container {
-    padding: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+    @apply flex flex-col p-0 h-full gap-4;
   }
-
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    flex: 1;
+  .form-group { 
+    @apply flex-1;
   }
-
-  .form-group label {
-    font-weight: 600;
-    color: #495057;
-    font-size: 13px;
-  }
-
-  .form-group textarea {
-    flex: 1;
-    padding: 10px;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    font-size: 14px;
-    font-family: inherit;
-    resize: vertical;
-    min-height: 60px;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-  }
-
-  .form-group textarea:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
-  }
-
-  .primary-button {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    align-self: flex-end;
-    background-color: #007bff;
-    color: white;
-  }
-
-  .primary-button:hover {
-    background-color: #0056b3;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-</style> 
+</style>
