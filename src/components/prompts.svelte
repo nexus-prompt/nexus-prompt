@@ -3,7 +3,7 @@
   import { fade, fly } from 'svelte/transition';
   import { flip } from 'svelte/animate';
   import { appData, snapshotData, viewContext, isInitialized, showToast, capabilities, entitlements } from '../stores';
-  import PromptEditor from './prompt-editor.svelte';
+  import EditPrompt from './edit-prompt/detail.svelte';
 
   // Local state
   let view = $state<'list' | 'edit'>('list');
@@ -152,7 +152,7 @@
     </div>
   {:else if view === 'edit'}
     <div in:fade={{ duration: 200 }}>
-      <PromptEditor
+      <EditPrompt
         promptId={editingPromptId}
         promptSelectionReset={promptSelectionReset}
         backToList={backToList}

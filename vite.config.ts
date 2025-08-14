@@ -20,6 +20,7 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     minify: 'terser',
+    chunkSizeWarningLimit: 1000,
   },
   publicDir: 'public',
   plugins: [svelte()],
