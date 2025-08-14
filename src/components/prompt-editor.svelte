@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Prompt } from '../types';
+  import { autosize } from '../actions/autosize';
   
   import { type PromptViewModel, createPromptViewModel, toPromptDsl } from '../promptops/dsl/prompt/renderer';
   import { storageService } from '../services/storage';
@@ -140,13 +141,13 @@
     <textarea
       id="promptContent"
       data-testid="prompt-content-input"
+      use:autosize={{ maxRows: 15, minRows: 10 }}
       bind:value={promptViewModel.template}
-      rows="10"
       placeholder="LLMプロンプトを入力">
     </textarea>
   </div>
 
-  <div class="actions">
+  <div class="input-button-group">
     <button id="savePrompt" class="primary-button" data-testid="save-prompt-button" onclick={save} disabled={isSaving}>
       {isSaving ? '保存中...' : '保存'}
     </button>
@@ -157,24 +158,14 @@
 </div>
 
 <style>
+  @reference "tailwindcss";
   .prompt-editor {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    @apply flex flex-col p-0 h-full gap-4;
   }
   .link-back {
-    align-self: flex-start;
-    display: inline-flex;
-    background: none;
-    border: none;
-    padding: 0;
-    color: #0d6efd;
-    cursor: pointer;
-    text-decoration: underline;
-    font-size: 13px;
-    line-height: 1.6;
+    @apply self-start inline-flex bg-none border-none p-0 text-[#0d6efd] cursor-pointer underline text-[13px] leading-6;
   }
-  .link-back:hover { opacity: 0.85; }
-  .form-group { display: flex; flex-direction: column; gap: 8px; }
-  .actions { display: flex; gap: 10px; }
+  .link-back:hover { 
+    @apply opacity-85;
+  }
 </style>

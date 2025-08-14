@@ -1,8 +1,9 @@
 <script lang="ts">
   import type { ModelInfo } from '../types';
-  import { appData, snapshotData, showToast } from '../stores';
+  import { appData, snapshotData, showToast, viewContext } from '../stores';
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
+  import { autosize } from '../actions/autosize';
 
   // Event handler, Props
   let { switchTab, selectedPromptIdFromParent } = $props();
@@ -182,7 +183,7 @@
 </script>
 
 <div class="improvement-container">
-  <div class="top-panel">
+  <div class="top-layout">
     <div class="form-group">
       <select 
         id="modelSelect" 
@@ -214,7 +215,7 @@
           data-testid="user-prompt-input"
           bind:value={$userPrompt}
           disabled={isLoading}
-          rows="15" 
+          use:autosize={{ maxRows: 20, minRows: 10, fixedRows: $viewContext === 'popup' ? 13 : undefined }}
           oninput={handleInput}
           placeholder="改善したいプロンプトを入力してください">
         </textarea>
@@ -235,211 +236,109 @@
           {/each}
         </select>
       </div>
-      <button id="applyButton" data-testid="apply-button" class="primary-button" onclick={improvePrompt} disabled={isLoading}>
-        {#if isLoading}処理中...{:else}適用{/if}
-      </button>
+      <div class="input-button-group">
+        <button id="applyButton" data-testid="apply-button" class="primary-button" onclick={improvePrompt} disabled={isLoading}>
+          {#if isLoading}処理中...{:else}適用{/if}
+        </button>
+      </div>
     </div>
     <div class="right-panel">
-      <div class="form-group">
-        <label for="resultArea">改善されたプロンプト</label>
+      <div class="form-group ">
+        <label for="resultArea" class="label-with-improved-prompt">改善されたプロンプト</label>
         <textarea 
           id="resultArea"
           data-testid="result-area"
+          class="result-area"
           bind:value={$resultArea}
-          rows="20" 
+          use:autosize={{ maxRows: 20, minRows: 7, fixedRows: $viewContext === 'popup' ? 17 : undefined }}
           oninput={handleInput}
           placeholder="改善結果がここに表示されます">
         </textarea>
       </div>
-      <button id="copyButton" class="secondary-button" onclick={copyResult} disabled={!resultArea}>コピー</button>
-    </div>
-  </div>
 
-  <div class="footer-link">
-    <a href="https://www.buymeacoffee.com/nexus.prompt" target="_blank" rel="noopener noreferrer" title="この拡張機能の開発をサポート">
-      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
-      <span>Support this extension</span>
-    </a>
+      <div class="input-button-group">
+        <a href="https://www.buymeacoffee.com/nexus.prompt" target="_blank" rel="noopener noreferrer" title="この拡張機能の開発をサポート">
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+          <span>Support this extension</span>
+        </a>
+        <button id="copyButton" class="secondary-button" onclick={copyResult} disabled={!resultArea}>コピー</button>
+      </div>
+    </div>
   </div>
 </div>
 
 <style>
+  @reference "tailwindcss";
+  .top-layout {
+    @apply justify-start border-b border-gray-200 mb-2;
+  }
+  .top-layout .form-group { 
+    @apply min-w-[300px]; 
+  }
   .improvement-container {
-    padding: 0;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    position: relative;
+    @apply flex flex-col p-0 h-full relative;
   }
 
-  .top-panel {
-    display: flex;
-    justify-content: flex-start;
-    border-bottom: 1px solid #dee2e6;
-    margin-bottom: 10px;
+  @media (min-width: 768px) {
+    .main-layout {
+      @apply flex flex-row gap-5 h-full;
+    }
+  }
+  @media (max-width: 768px) {
+    .main-layout {
+      @apply flex flex-row h-full;
+    }
   }
 
-  .top-panel .form-group {
-    min-width: 300px;
+  .left-panel, .right-panel {
+    @apply basis-0 min-w-0 flex-1 flex flex-col gap-3;
   }
 
-  .main-layout {
-    display: flex;
-    gap: 20px;
-    height: 100%;
-    flex: 1;
-  }
+  @media (max-width: 768px) {
+    .main-layout {
+      @apply flex-col;
+    }
+    .left-panel, .right-panel {
+      @apply w-full;
+    }
+  } 
 
-  .left-panel,
-  .right-panel {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-  }
-
-  .form-group {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .form-group:first-child {
-    flex: 1;
-  }
-
-  .form-group label {
-    font-weight: 600;
-    color: #495057;
-    font-size: 13px;
-  }
-
-  .form-group textarea,
-  .form-group select {
-    padding: 10px;
-    border: 1px solid #ced4da;
-    border-radius: 6px;
-    font-size: 14px;
-    font-family: inherit;
-    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
-  }
-  .form-group select.model-select {
-    padding: 2px;
-  }
-  
-  .form-group textarea {
-    resize: vertical;
-    min-height: 60px;
-  }
-
-  .left-panel .form-group:first-child textarea {
-    flex: 1;
-  }
-
+  .left-panel .form-group textarea,
   .right-panel .form-group textarea {
-    flex: 1;
+    @apply flex-1; 
   }
 
-  .form-group textarea:focus,
-  .form-group select:focus {
-    outline: none;
-    border-color: #007bff;
-    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  .model-select { 
+    @apply p-0.5;
   }
 
-  .primary-button,
-  .secondary-button {
-    padding: 10px 20px;
-    border: none;
-    border-radius: 6px;
-    font-size: 14px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    align-self: flex-end;
+  .label-with-improved-prompt {
+    @apply p-[5];
   }
-
-  .primary-button {
-    background-color: #007bff;
-    color: white;
-  }
-
-  .primary-button:hover {
-    background-color: #0056b3;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
-  .secondary-button {
-    background-color: #6c757d;
-    color: white;
-  }
-
-  .secondary-button:hover {
-    background-color: #5a6268;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-  }
-
   .label-with-reset {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
+    @apply flex justify-between items-center;
   }
-
   .reset-button {
-    padding: 4px 12px;
-    border: 1px solid #dc3545;
-    border-radius: 4px;
-    font-size: 12px;
-    font-weight: 500;
-    color: #dc3545;
-    background-color: transparent;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    @apply px-3 py-1 border border-red-500 rounded-md text-sm font-medium text-red-500 bg-transparent cursor-pointer transition-all duration-200;
   }
-
   .reset-button:hover {
-    background-color: #dc3545;
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 4px rgba(220, 53, 69, 0.2);
+    @apply bg-red-500 text-white -translate-y-px shadow-sm;
   }
-
   .reset-button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none;
-    box-shadow: none;
+    @apply opacity-50 cursor-not-allowed -translate-y-0 shadow-none;
   }
-
   .reset-button:disabled:hover {
-    background-color: transparent;
-    color: #dc3545;
+    @apply bg-transparent text-red-500;
   }
 
-  .footer-link {
-    position: absolute;
-    bottom: 8px;
-    right: 200px;
-    font-size: 12px;
+  .right-panel .input-button-group { 
+    @apply flex items-center justify-between text-sm w-full;
   }
-
-  .footer-link a {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    color: #868e96;
-    text-decoration: none;
-    transition: color 0.2s ease;
+  .right-panel .input-button-group a { 
+    @apply flex items-center gap-1.5 text-gray-500 no-underline transition-colors;
   }
-
-  .footer-link a:hover {
-    color: #007bff;
+  .right-panel .input-button-group a:hover { 
+    @apply text-blue-500;
   }
-
-  .footer-link svg {
-    width: 16px;
-    height: 16px;
-  }
-</style> 
+  .right-panel .input-button-group svg { @apply w-4 h-4; }
+</style>

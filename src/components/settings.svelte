@@ -135,11 +135,11 @@
   <!-- APIキーセクション -->
   <div class="setting-api-key-section">
     <div class="form-group">
-      <label for="apiKey">Gemini APIキー</label>
+      <label for="geminiApiKey">Gemini APIキー</label>
       <div class="input-button-group">
         <input 
           type="password" 
-          id="apiKey"
+          id="geminiApiKey"
           bind:value={geminiApiKey}
           disabled={isLoading}
           data-testid="gemini-api-key-input"
@@ -154,11 +154,11 @@
       </div>
     </div>
     <div class="form-group">
-      <label for="apiKey">OpenAI APIキー</label>
+      <label for="openaiApiKey">OpenAI APIキー</label>
       <div class="input-button-group">
         <input 
           type="password" 
-          id="apiKey"
+          id="openaiApiKey"
           bind:value={openaiApiKey}
           disabled={isLoading}
           data-testid="openai-api-key-input"
@@ -173,11 +173,11 @@
       </div>
     </div>
     <div class="form-group">
-      <label for="apiKey">Anthropic APIキー</label>
+      <label for="anthropicApiKey">Anthropic APIキー</label>
       <div class="input-button-group">
         <input 
           type="password" 
-          id="apiKey"
+          id="anthropicApiKey"
           bind:value={anthropicApiKey}
           disabled={isLoading}
           data-testid="anthropic-api-key-input"
@@ -239,102 +239,42 @@
 </div>
 
 <style>
+  @reference "tailwindcss";
+  .setting-api-key-section .form-group label {
+    @apply mt-2;
+  }
   .settings-container {
-    padding: 0;
-    display: flex;
-    flex-direction: column;
+    @apply flex flex-col p-0;
   }
-
-  .input-button-group {
-    display: flex;
-    gap: 8px;
-    align-items: center;
+  .import-export-section { 
+    @apply mt-6 pt-4 border-t border-gray-200;
   }
-
-  .input-button-group input {
-    flex: 1;
+  .import-export-section h3 { 
+    @apply mb-4 text-lg font-semibold text-gray-900;
   }
-
-  .input-button-group .primary-button {
-    flex-shrink: 0;
-  }
-
-  .import-export-section {
-    margin-top: 24px;
-    padding-top: 20px;
-    border-top: 1px solid #e0e0e0;
-  }
-
-  .import-export-section h3 {
-    margin: 0 0 16px 0;
-    font-size: 16px;
-    font-weight: 600;
-    color: #333;
-  }
-
   .import-export-group {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+    @apply flex flex-col gap-4; 
   }
-
-  .import-export-item {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  .import-export-item { 
+    @apply flex flex-col gap-2;
   }
-
   .import-export-item label {
-    font-weight: 500;
-    font-size: 14px;
-    color: #333;
+    @apply font-medium text-sm text-gray-900;
   }
-
   .import-export-item .description {
-    font-size: 12px;
-    color: #666;
-    margin: 0;
-    line-height: 1.4;
-  }
-
-  .secondary-button {
-    background-color: #f8f9fa;
-    color: #333;
-    border: 1px solid #dee2e6;
-    padding: 8px 16px;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 14px;
-    transition: background-color 0.2s;
-    align-self: flex-start;
-  }
-
-  .secondary-button:hover:not(:disabled) {
-    background-color: #e9ecef;
-  }
-
-  .secondary-button:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    @apply text-xs text-gray-600 m-0; 
   }
 
   .feedback-link {
-    margin-top: 20px;
-    text-align: center;
-    font-size: 12px;
-    color: #555;
+    @apply mt-4 text-center text-xs text-gray-600;
   }
-
   .feedback-link p {
-    margin-bottom: 8px;
+    @apply mb-2;
   }
-
   .feedback-link a {
-    color: #007bff;
-    text-decoration: none;
+    @apply text-blue-500 no-underline;
   }
-
   .feedback-link a:hover {
-    text-decoration: underline;
+    @apply underline;
   }
 </style> 

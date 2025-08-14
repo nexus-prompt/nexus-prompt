@@ -81,7 +81,7 @@
   }
 </script>
 
-<div class="container" id="nexus-prompt" data-testid="nexus-prompt">
+<div class={`container nexus-prompt-base ${$viewContext === 'popup' ? 'popup-view' : ''}`} id="nexus-prompt" data-testid="nexus-prompt">
   <!-- タブナビゲーション -->
   <div class="tabs">
     {#if $snapshotData}
@@ -147,6 +147,47 @@
 {/if}
 
 <style>
-  /* Svelteコンポーネント用のスタイル */
-  @import '../../styles.css';
-</style> 
+   @reference "tailwindcss";
+  .container {
+    @apply flex flex-col h-full bg-white;
+  }
+  @media (min-width: 64rem) {
+    .container {
+        @apply max-w-full;
+    }
+  }
+  @media (min-width: 48rem) {
+    .container {
+        @apply max-w-full;
+    }
+  }
+  @media (min-width: 40rem) {
+    .container {
+        @apply max-w-full;
+    }
+  }
+
+  .tabs {
+    @apply flex bg-[#f8f9fa] border-b border-[#dee2e6] p-0;
+  }
+  
+  .tab-button {
+    @apply flex-1 px-4 py-3 border-0 bg-transparent cursor-pointer text-[14px] text-[#495057] transition-all duration-300 border-b-[3px] border-transparent;
+  }
+  
+  .tab-button:hover {
+    @apply bg-[#e9ecef] text-[#212529];
+  }
+  
+  .tab-button.active {
+    @apply text-[#007bff] border-b-[#007bff] bg-white;
+  }
+  
+  .tab-content {
+    @apply hidden flex-1 p-5 overflow-y-auto;
+  }
+  
+  .tab-content.active {
+    @apply block;
+  }
+</style>
