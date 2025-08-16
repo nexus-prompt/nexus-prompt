@@ -24,7 +24,7 @@
   let editingIndex: number | null = $state(null);
 
   // Constants
-  const MAX_PROMPT_CONTETNT_LENGTH = 10000;
+  const MAX_PROMPT_CONTENT_LENGTH = 10000;
   const MAX_PROMPT_NAME_LENGTH = 200;
   const MAX_PROMPT_COUNT = 20;
   const inputTypes = [
@@ -33,9 +33,9 @@
     { type: 'boolean' as const, typeLabel: 'はい・いいえ' },
   ];
 
-  function openAddInputModal() {
+  function openAddInputModal(_e: MouseEvent, defaultInput?: Partial<PromptInputView>) {
     editingIndex = null;
-    initialInput = { name: 'target_text', type: 'string' };
+    initialInput = defaultInput ?? { name: 'target_text', type: 'string' };
     showInputModal = true;
   }
 
@@ -119,7 +119,7 @@
     const validationError = validatePromptViewModel(
       promptViewModel,
       MAX_PROMPT_NAME_LENGTH,
-      MAX_PROMPT_CONTETNT_LENGTH
+      MAX_PROMPT_CONTENT_LENGTH
     );
     if (validationError) {
       showToast(validationError, 'error');
@@ -219,7 +219,11 @@
         <BasicInput editorRef={editorRef} type={type.type} typeLabel={type.typeLabel} />
       {/each}
     </section>
-    <PromptEditor bind:this={editorRef} bind:value={promptViewModel.template} />
+    <PromptEditor
+      bind:this={editorRef}
+      bind:value={promptViewModel.template}
+      on:openAddInput={(e) => openAddInputModal(new MouseEvent('click'), { name: e.detail.name, type: e.detail.type as any })}
+    />
   </div>
 
   <div class="input-button-group">

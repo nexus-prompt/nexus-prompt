@@ -9,7 +9,10 @@
   let editorElement: HTMLElement | null = null;
   let view: EditorView | null = null;
   export let value: string;
-  const dispatch = createEventDispatcher<{ input: string; change: string }>()
+  const dispatch = createEventDispatcher<{ input: string; change: string; openAddInput: { name: string; type: string } }>()
+
+  // inputのパターン
+  const inputPattern = /\{\{[^}]+\}\}/g
 
   // EditorView のテーマ拡張
   function editorTheme() {
@@ -130,7 +133,9 @@
             const dropPos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head
             console.debug('[Editor] drop:pos', { dropPos, text })
             if (text) {
-              handleEditorTextInsert(view, dropPos, text)
+              // ドラッグ元が設定したカスタム MIME から type を取得
+              const type = dt.getData('application/x-codemirror-input') || ''
+              handleEditorTextInsert(view, dropPos, text, type)
             }
           } catch (e) {
             console.error('[Editor] Drop handling error (inner)', e)
@@ -144,7 +149,7 @@
   }
 
   // drop とプログラム挿入で共有するテキスト挿入ヘルパー
-  function handleEditorTextInsert(view: EditorView, pos: number, text: string, opts?: { moveCursorToEnd?: boolean }) {
+  function handleEditorTextInsert(view: EditorView, pos: number, text: string, type: string, opts?: { moveCursorToEnd?: boolean }) {
     console.debug('[Editor] text-insert', { from: pos, insert: text, via: opts?.moveCursorToEnd ? 'programmatic' : 'drop' })
     if (opts?.moveCursorToEnd) {
       view.dispatch({ changes: { from: pos, to: pos, insert: text }, selection: { anchor: pos + text.length } })
@@ -152,6 +157,15 @@
       view.dispatch({ changes: { from: pos, to: pos, insert: text } })
     }
     view.focus()
+
+    // テキストから {{name}} の name を抽出して、親に入力追加モーダルを開くリクエストを通知
+    const match = text.match(inputPattern)
+    if (match && match[0]) {
+      const name = match[0].slice(2, -2).trim()
+      if (name) {
+        dispatch('openAddInput', { name, type })
+      }
+    }
   }
 
   // 親から渡される value の変更をエディタへ反映（無限ループ防止のため差分時のみ）
@@ -204,10 +218,10 @@
     }
   })
 
-  export function insertTextAtCursor(text: string) {
+  export function insertTextAtCursor(text: string, type: string) {
     if (!view) return
     const pos = view.state.selection.main.head
-    handleEditorTextInsert(view, pos, text, { moveCursorToEnd: true })
+    handleEditorTextInsert(view, pos, text, type, { moveCursorToEnd: true })
   }
 </script>
 

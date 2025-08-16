@@ -63,7 +63,7 @@
 <div class="modal-overlay" role="dialog" aria-modal="true">
   <div class="modal">
     <div class="modal-header">
-      <div class="modal-title">差し込みを追加</div>
+      <div class="modal-title">差し込みを{editing ? '編集' : '追加'}</div>
       {#if editing}
         <button class="delete-button" type="button" onclick={onDelete}>削除</button>
       {/if}
