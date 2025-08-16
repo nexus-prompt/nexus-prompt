@@ -3,11 +3,11 @@ import { parsePrompt } from './registry';
 import { PromptDslV2 } from './v2';
 import type { z } from 'zod';
 
-export type PromptFieldType = z.infer<typeof PromptDslV2.Input>['type'];
+export type PromptInputType = z.infer<typeof PromptDslV2.Input>['type'];
 
-export interface PromptFieldView {
+export interface PromptInputView {
   name: string;
-  type: PromptFieldType;
+  type: PromptInputType;
   required: boolean;
   description?: string;
   defaultValue?: unknown;
@@ -20,7 +20,7 @@ export interface PromptViewModel {
   name: string;
   slug?: string;
   template: string;
-  fields: PromptFieldView[];
+  inputs: PromptInputView[];
   model?: LatestPromptDsl['model'];
   controls?: LatestPromptDsl['controls'];
   enums?: LatestPromptDsl['enums'];
@@ -40,7 +40,7 @@ export interface PromptViewModel {
 export function createPromptViewModel(input: string | unknown): PromptViewModel {
   const prompt = parsePrompt(input);
 
-  const fields: PromptFieldView[] = (prompt.inputs ?? []).map((inp) => ({
+  const inputs: PromptInputView[] = (prompt.inputs ?? []).map((inp) => ({
     name: inp.name,
     type: inp.type,
     required: Boolean(inp.required),
@@ -54,7 +54,7 @@ export function createPromptViewModel(input: string | unknown): PromptViewModel 
     name: prompt.name,
     slug: prompt.slug,
     template: prompt.template,
-    fields,
+    inputs,
     model: prompt.model,
     controls: prompt.controls,
     enums: prompt.enums,
@@ -72,7 +72,7 @@ export function createPromptViewModel(input: string | unknown): PromptViewModel 
  * - スキーマで最終検証して返す
  */
 export function toPromptDsl(view: PromptViewModel): LatestPromptDsl {
-  const inputs = (view.fields ?? []).map((f) => {
+  const inputs = (view.inputs ?? []).map((f) => {
     // オプショナルなプロパティは、値が存在する場合のみ追加し、YAML/JSONがクリーンになるようにする
     return {
       name: f.name,
