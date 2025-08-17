@@ -5,11 +5,21 @@
   import { keymap } from '@codemirror/view'
   import { defaultKeymap, historyKeymap } from '@codemirror/commands'
   import { searchKeymap } from '@codemirror/search'
+  import type { PromptInputView } from '../../promptops/dsl/prompt/renderer'
+  import { generateUniqueInputName } from '../../utils/unique-input-generator'
 
   let editorElement: HTMLElement | null = null;
   let view: EditorView | null = null;
   export let value: string;
-  const dispatch = createEventDispatcher<{ input: string; change: string }>()
+  export let inputs: PromptInputView[];
+  const dispatch = createEventDispatcher<{ input: string; change: string; openAddInput: { name: string; type: string } }>()
+
+  // inputのパターン
+  const inputPattern = /\{\{[^}]+\}\}/g
+
+  function escapeRegExp(str: string): string {
+    return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  }
 
   // EditorView のテーマ拡張
   function editorTheme() {
@@ -19,9 +29,11 @@
         fontSize: "14px"
       },
       ".cm-scroller": {
+        overflow: "auto;",
         fontFamily: "'Fira Code', 'Consolas', 'Monaco', monospace"
       },
       ".cm-content": {
+        minHeight: "300px",
         padding: "16px",
         textAlign: "left"
       },
@@ -31,7 +43,8 @@
       ".cm-focused .cm-selectionBackground, ::selection": {
         backgroundColor: "#ff3e0030"
       },
-      ".cm-gutters": {
+      ".cm-gutters.cm-gutters-before": {
+        minHeight: "300px !important",
         backgroundColor: "#f5f5f5",
         color: "#999",
         border: "none"
@@ -130,7 +143,9 @@
             const dropPos = view.posAtCoords({ x: event.clientX, y: event.clientY }) ?? view.state.selection.main.head
             console.debug('[Editor] drop:pos', { dropPos, text })
             if (text) {
-              handleEditorTextInsert(view, dropPos, text)
+              // ドラッグ元が設定したカスタム MIME から type を取得
+              const type = dt.getData('application/x-codemirror-input') || ''
+              handleEditorTextInsert(view, dropPos, text, type)
             }
           } catch (e) {
             console.error('[Editor] Drop handling error (inner)', e)
@@ -144,14 +159,26 @@
   }
 
   // drop とプログラム挿入で共有するテキスト挿入ヘルパー
-  function handleEditorTextInsert(view: EditorView, pos: number, text: string, opts?: { moveCursorToEnd?: boolean }) {
-    console.debug('[Editor] text-insert', { from: pos, insert: text, via: opts?.moveCursorToEnd ? 'programmatic' : 'drop' })
-    if (opts?.moveCursorToEnd) {
-      view.dispatch({ changes: { from: pos, to: pos, insert: text }, selection: { anchor: pos + text.length } })
-    } else {
-      view.dispatch({ changes: { from: pos, to: pos, insert: text } })
+  function handleEditorTextInsert(view: EditorView, pos: number, text: string, type: string, opts?: { moveCursorToEnd?: boolean }) {
+    // テキストから {{name}} の name を抽出して、親に入力追加モーダルを開くリクエストを通知
+    const match = text.match(inputPattern)
+    if (match && match[0]) {
+      let name = match[0].slice(2, -2).trim()
+      const docText = view ? view.state.doc.toString() : ''
+      name = generateUniqueInputName(name, inputs, docText)
+
+      console.debug('[Editor] text-insert', { from: pos, insert: `{{${name}}}`, via: opts?.moveCursorToEnd ? 'programmatic' : 'drop' })
+      if (opts?.moveCursorToEnd) {
+        view.dispatch({ changes: { from: pos, to: pos, insert: `{{${name}}}` }, selection: { anchor: pos + text.length } })
+      } else {
+        view.dispatch({ changes: { from: pos, to: pos, insert: `{{${name}}}` } })
+      }
+      view.focus()
+
+      if (name) {
+        dispatch('openAddInput', { name, type })
+      }
     }
-    view.focus()
   }
 
   // 親から渡される value の変更をエディタへ反映（無限ループ防止のため差分時のみ）
@@ -173,6 +200,7 @@
           ...searchKeymap,
         ]),
         editorTheme(),
+        EditorView.lineWrapping,
         createDomEventHandlers(),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -204,10 +232,33 @@
     }
   })
 
-  export function insertTextAtCursor(text: string) {
+  export function insertTextAtCursor(text: string, type: string) {
     if (!view) return
     const pos = view.state.selection.main.head
-    handleEditorTextInsert(view, pos, text, { moveCursorToEnd: true })
+    handleEditorTextInsert(view, pos, text, type, { moveCursorToEnd: true })
+  }
+
+  export function replaceVarName(oldName: string, newName: string) {
+    if (!view) return
+    const trimmedOld = (oldName ?? '').trim()
+    const trimmedNew = (newName ?? '').trim()
+    if (!trimmedOld || !trimmedNew || trimmedOld === trimmedNew) return
+    const docText = view.state.doc.toString()
+    const pattern = new RegExp(`\\{\\{\\s*${escapeRegExp(trimmedOld)}\\s*\\}\\}`, 'g')
+    if (!pattern.test(docText)) return
+    const replaced = docText.replace(pattern, `{{${trimmedNew}}}`)
+    view.dispatch({ changes: { from: 0, to: docText.length, insert: replaced } })
+    view.focus()
+  }
+  export function deleteVarName(name: string) {
+    if (!view) return
+    const trimmed = (name ?? '').trim()
+    if (!trimmed) return
+    const docText = view.state.doc.toString()
+    const pattern = new RegExp(`\\{\\{\\s*${escapeRegExp(trimmed)}\\s*\\}\\}`, 'g')
+    const replaced = docText.replace(pattern, '')
+    view.dispatch({ changes: { from: 0, to: docText.length, insert: replaced } })
+    view.focus()
   }
 </script>
 
