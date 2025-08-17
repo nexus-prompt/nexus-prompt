@@ -104,13 +104,6 @@
     }
   }
 
-  // 型に応じてデフォルト値を軽く初期化
-  $effect(() => {
-    if (defaultRaw === '') {
-      setDefaultRaw()
-    }
-  });
-
   function handleModalKeydown(e: KeyboardEvent) {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -170,21 +163,22 @@
       </div>
       <div class="form-group">
         <label class="field-label" for="input-description">説明</label>
-        <input type="text" bind:value={description} placeholder="任意の説明" id="input-description" />
+        <textarea bind:value={description} placeholder="任意の説明" id="input-description" rows={2} ></textarea>
       </div>
       <div class="form-group">
         <label class="field-label" for="input-default">デフォルト値</label>
         {#if type === 'string'}
-          <input type="text" bind:value={defaultRaw} id="input-default" />
+          <textarea bind:value={defaultRaw} id="input-default" rows={2} ></textarea>
         {:else if type === 'number'}
           <input type="number" bind:value={defaultRaw} id="input-default" />
         {:else if type === 'boolean'}
           <select id="input-default" bind:value={defaultRaw}>
+            <option value="">なし</option>
             <option value="true">はい</option>
             <option value="false">いいえ</option>
           </select>
         {:else}
-          <input type="text" bind:value={defaultRaw} id="input-default" />
+          <textarea bind:value={defaultRaw} id="input-default" rows={2} ></textarea>
         {/if}
       </div>
     </div>

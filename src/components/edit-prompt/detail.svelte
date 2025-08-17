@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Prompt } from '../../types';
-  import { onMount, onDestroy } from 'svelte';
+  import { useNavHistory } from '../../actions/navigation';
   import PromptEditor from './prompt-editor.svelte';
   import { type PromptViewModel, createPromptViewModel, toPromptDsl, type PromptInputView } from '../../promptops/dsl/prompt/renderer';
   import { validateTemplateInputsConsistency } from '../../promptops/dsl/prompt/linter';
@@ -23,9 +23,7 @@
   let showInputModal = $state(false);
   let initialInput: Partial<PromptInputView> | undefined = $state({name: "target_string", type: "string", required: false});
   let editingIndex: number | null = $state(null);
-  let addedHistoryEntry = $state(false);
-  let popstateHandler: ((e: PopStateEvent) => void) | null = null;
-  let keydownHandler: ((e: KeyboardEvent) => void) | null = null;
+  // useNavHistoryが内部で履歴・戻るキー処理を担当するため、本コンポーネントでは状態を持たない
 
   // Constants
   const MAX_PROMPT_CONTENT_LENGTH = 10000;
@@ -173,41 +171,8 @@
     })();
   });
 
-  onMount(() => {
-    try {
-      window.history.pushState({ view: 'edit-prompt' }, '');
-      addedHistoryEntry = true;
-    } catch {
-      // noop
-    }
-    popstateHandler = () => {
-      if (addedHistoryEntry) {
-        addedHistoryEntry = false;
-        backToList();
-      }
-    };
-    window.addEventListener('popstate', popstateHandler);
-
-    keydownHandler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' || (e as any).keyCode === 27) {
-        if (showInputModal) return;
-        if (isSaving) return;
-        e.preventDefault();
-        backToListHandler();
-      }
-    };
-    window.addEventListener('keydown', keydownHandler);
-  });
-
-  onDestroy(() => {
-    if (popstateHandler) {
-      window.removeEventListener('popstate', popstateHandler);
-      popstateHandler = null;
-    }
-    if (keydownHandler) {
-      window.removeEventListener('keydown', keydownHandler);
-      keydownHandler = null;
-    }
+  const { backToListHandler } = useNavHistory(() => backToList(), {
+    getDetailState: () => ({ view: 'detail', id: promptId ?? null }),
   });
 
   async function save(): Promise<void> {
@@ -251,6 +216,7 @@
           id,
           content: toPromptDsl(promptViewModel),
           order: newData.prompts.length + 1,
+          shared: true,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
@@ -268,21 +234,15 @@
     }
   }
 
-  function backToListHandler(): void {
-    if (addedHistoryEntry) {
-      try {
-        window.history.back();
-      } catch {
-        backToList();
-      }
-    } else {
-      backToList();
-    }
+  function backToListButtonHandler(): void {
+    if (showInputModal) return;
+    if (isSaving) return;
+    backToListHandler();
   }
 </script>
 
 <div class="edit-prompt">
-  <button type="button" class="link-back" data-testid="back-to-list-button" onclick={backToListHandler}>← LLMプロンプト一覧へ戻る</button>
+  <button type="button" class="link-back" data-testid="back-to-list-button" onclick={backToListButtonHandler}>← LLMプロンプト一覧へ戻る</button>
 
   <div class="form-group">
     <label for="promptName">プロンプト名</label>
@@ -333,7 +293,7 @@
   </div>
 
   <div class="input-button-group">
-    <button id="cancelPrompt" class="secondary-button" data-testid="cancel-prompt-button" onclick={backToListHandler} disabled={isSaving}>
+    <button id="cancelPrompt" class="secondary-button" data-testid="cancel-prompt-button" onclick={backToListButtonHandler} disabled={isSaving}>
       キャンセル
     </button>
     <button id="savePrompt" class="primary-button" data-testid="save-prompt-button" onclick={save} disabled={isSaving}>
@@ -358,12 +318,6 @@
   @reference "tailwindcss";
   .edit-prompt {
     @apply flex flex-col p-0 h-full gap-4;
-  }
-  .link-back {
-    @apply self-start inline-flex bg-none border-none p-0 text-[#0d6efd] cursor-pointer underline text-[13px] leading-6;
-  }
-  .link-back:hover { 
-    @apply opacity-85;
   }
   .inputs {
     display: flex;

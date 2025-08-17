@@ -4,6 +4,7 @@
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { autosize } from '../actions/autosize';
+  import { copyToClipboard } from '../utils/copy-to-clipboard';
 
   // Event handler, Props
   let { switchTab, selectedPromptIdFromParent } = $props();
@@ -69,12 +70,11 @@
         console.warn(response.error);
         if (response.error.includes('APIキーが設定されていません')) {
           showToast('APIキーを設定してください', 'error');
-          // 親へのイベント通知とあわせて、スナップショットも直接更新して確実にタブを切り替える
           switchTab('settings');
           try {
             snapshotData?.update(current => current ? { ...current, activeTab: 'settings' } : current);
           } catch (e) {
-            // 失敗しても致命的ではないため握りつぶす
+            // noop
           }
         } else if (response.error.includes('fetch')) {
           showToast('ネットワーク接続に問題があるようです。接続を確認してください。', 'error');
@@ -96,33 +96,8 @@
       return;
     }
 
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText($resultArea)
-        .then(() => {
-          showToast('クリップボードにコピーしました', 'success');
-        })
-        .catch((err) => {
-          console.warn('クリップボードへのコピーに失敗:', err);
-          fallbackCopy();
-        });
-    } else {
-      fallbackCopy();
-    }
-  }
-
-  function fallbackCopy(): void {
     const textarea = document.getElementById('resultArea') as HTMLTextAreaElement;
-    if (textarea) {
-      textarea.value = $resultArea;
-      textarea.select();
-      try {
-        document.execCommand('copy');
-        showToast('クリップボードにコピーしました', 'success');
-      } catch (err) {
-        console.warn('コピーに失敗:', err);
-        showToast('コピーに失敗しました', 'error');
-      }
-    }
+    copyToClipboard($resultArea, textarea, showToast);
   }
 
   function resetFields(): void {
@@ -207,7 +182,7 @@
     <div class="left-panel">
       <div class="form-group">
         <div class="label-with-reset">
-          <label for="userPrompt">LLMで実行するプロンプト</label>
+          <label for="userPrompt">改善したいプロンプト</label>
           <button class="reset-button" onclick={resetFields} disabled={isLoading}>リセット</button>
         </div>
         <textarea 
