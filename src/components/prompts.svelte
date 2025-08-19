@@ -4,6 +4,7 @@
   import { flip } from 'svelte/animate';
   import { appData, snapshotData, viewContext, isInitialized, showToast, capabilities, entitlements } from '../stores';
   import EditPrompt from './edit-prompt/detail.svelte';
+  import { useForwardToDetail } from '../actions/navigation';
 
   // Local state
   let view = $state<'list' | 'edit'>('list');
@@ -127,6 +128,10 @@
     view = 'list';
     editingPromptId = null;
   }
+
+  useForwardToDetail((id: string | null) => {
+    openEditor(id ?? null);
+  });
 </script>
 
 <div class="prompts-container">
