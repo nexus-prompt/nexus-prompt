@@ -1,4 +1,4 @@
-export function copyToClipboard(text: string, textarea: HTMLTextAreaElement, showToast: (message: string, type: 'success' | 'error') => void): void {
+export function copyToClipboard(text: string, textarea: HTMLTextAreaElement | null, showToast: (message: string, type: 'success' | 'error') => void): void {
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text)
       .then(() => {
@@ -6,10 +6,10 @@ export function copyToClipboard(text: string, textarea: HTMLTextAreaElement, sho
       })
       .catch((err) => {
         console.warn('クリップボードへのコピーに失敗:', err);
-        fallbackCopy(text, textarea, showToast);
+        textarea && fallbackCopy(text, textarea, showToast);
       });
    } else {
-     fallbackCopy(text, textarea, showToast);
+    textarea && fallbackCopy(text, textarea, showToast);
    }
 }
 

@@ -6,6 +6,8 @@
   import { caluculateComplexity } from '../utils/input-complexity-calculator';
   import type { Prompt } from '../types';
   import PromptPlaygroundInput from './prompt-playgroun-input.svelte';
+  import { hasRemainingPlaceholders } from '../promptops/dsl/prompt/linter';
+  import { buildPrompt } from '../promptops/dsl/prompt/builder';
 
   // constants
   const ALIGN_METHOD_FULL = 'full' as const;
@@ -34,6 +36,11 @@
   let selectedModelId = $state('');
   let isLoading = $state(false);
   let userPrompt = $state('');
+  let recordInputs = $state<Record<string, unknown>>({});
+
+  function handleChildInputChange(name: string, value: string): void {
+    recordInputs = { ...recordInputs, [name]: value };
+  }
 
   const selectedPrompt = $derived.by((): Prompt | undefined => {
     const prompts = $appData?.prompts || [];
@@ -84,6 +91,20 @@
     }
   });
 
+  function handlePromptSelectChange(): void {
+    if (!selectedPrompt) return;
+    const validNames = new Set((selectedPrompt.content.inputs || []).map((i) => i.name));
+    const nextInputs: Record<string, unknown> = {};
+    validNames.forEach((name) => {
+      if (Object.prototype.hasOwnProperty.call(recordInputs, name)) {
+        nextInputs[name] = recordInputs[name];
+      } else {
+        nextInputs[name] = '';
+      }
+    });
+    recordInputs = nextInputs;
+  }
+
   function copyUserPrompt(): void {
     if (!userPrompt.trim()) {
       showToast('コピーする内容がありません', 'error');
@@ -94,10 +115,28 @@
   }
 
   function buildUserPrompt(): void {
-    if (!userPrompt.trim()) {
-      showToast('コピーする内容がありません', 'error');
+    if (!selectedPrompt) return;
+    let hasError = false;
+    selectedPrompt.content.inputs.forEach((input) => {
+      if (input.required && !recordInputs[input.name]) {
+        const element = document.getElementById(input.name);
+        if (element) {
+          element.classList.add('border-red-500');
+          hasError = true;
+        }
+      }
+    });
+    if (hasError) {
+      showToast('必須項目が入力されていません', 'error');
+      return 
+    }
+
+    const builtPrompt = buildPrompt(userPrompt, recordInputs);
+    if (hasRemainingPlaceholders(builtPrompt)) {
+      showToast('プレースホルダーが残っています', 'error');
       return;
     }
+    copyToClipboard(builtPrompt, null, showToast);
   }
 </script>
 
@@ -111,6 +150,7 @@
         id="promptSelect" 
         data-testid="prompt-select"
         bind:value={selectedModelId}
+        onchange={handlePromptSelectChange}
         disabled={isLoading}>
         <option value="">選択してください</option>
         {#each $appData?.prompts || [] as prompt}
@@ -124,7 +164,6 @@
   <div class="main-layout">
     <div class="main-panel {ALIGN_METHOD_TO_CLASSES.get(ALIGN_METHOD_FULL)?.[ALIGN_METHOD_TO_PANEL_CLASS_INDEX]}" 
          class:full={alignMethod === ALIGN_METHOD_FULL}
-         class:left-right={alignMethod === ALIGN_METHOD_LEFT_RIGHT}
          class:top-bottom={alignMethod === ALIGN_METHOD_TOP_BOTTOM}>
       <div class="form-group">
         <label for="userPrompt">実行したいLLMプロンプト</label>   
@@ -150,10 +189,15 @@
       </div>
     </div>
     {#if alignMethod === ALIGN_METHOD_LEFT_RIGHT}
-      <div class="right-panel left-right {ALIGN_METHOD_TO_CLASSES.get(ALIGN_METHOD_LEFT_RIGHT)?.[ALIGN_METHOD_TO_PANEL_CLASS_INDEX]}">
+      <div class="right-panel {ALIGN_METHOD_TO_CLASSES.get(ALIGN_METHOD_LEFT_RIGHT)?.[ALIGN_METHOD_TO_PANEL_CLASS_INDEX]}">
         <div class="form-group">
           {#each selectedPrompt?.content.inputs || [] as input}
-            <PromptPlaygroundInput {input} {inputStringRows} />
+            <PromptPlaygroundInput 
+              {input} 
+              {inputStringRows} 
+              value={recordInputs[input.name] as string}
+              onchange={handleChildInputChange}
+            />
           {/each}
         </div>
       </div>
@@ -161,7 +205,12 @@
       <div class="bottom-panel top-bottom {ALIGN_METHOD_TO_CLASSES.get(ALIGN_METHOD_TOP_BOTTOM)?.[ALIGN_METHOD_TO_PANEL_CLASS_INDEX]}">
         <div class="form-group">
           {#each selectedPrompt?.content.inputs || [] as input}
-            <PromptPlaygroundInput {input} {inputStringRows} />
+            <PromptPlaygroundInput 
+              {input} 
+              {inputStringRows} 
+              value={recordInputs[input.name] as string}
+              onchange={handleChildInputChange}
+            />
           {/each}
         </div>
       </div>
