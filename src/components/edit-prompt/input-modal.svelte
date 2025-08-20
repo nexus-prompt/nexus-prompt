@@ -2,9 +2,10 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import type { PromptInputView, PromptInputType } from '../../promptops/dsl/prompt/renderer';
   import { generateUniqueInputName } from '../../utils/unique-input-generator';
+  import { t } from '../../lib/translations/translations';
 
   // Props
-  let { inputTypes, initial, inputs, editing = false }: { inputTypes: { type: PromptInputType; typeLabel: string }[], initial?: Partial<PromptInputView>, inputs?: PromptInputView[], editing?: boolean } = $props();
+  let { inputTypes, initial, inputs, editing = false }: { inputTypes: PromptInputType[], initial?: Partial<PromptInputView>, inputs?: PromptInputView[], editing?: boolean } = $props();
 
   const dispatch = createEventDispatcher<{ save: PromptInputView; cancel: void; delete: void }>();
 
@@ -135,7 +136,7 @@
         <label class="field-label" for="input-type">タイプ</label>
         <select bind:value={type} id="input-type" onchange={handleTypeChange}>
           {#each inputTypes as it}
-            <option value={it.type}>{it.typeLabel}</option>
+            <option value={it}>{$t(`common.input-type-${it}-name`)}</option>
           {/each}
         </select>
       </div>
@@ -173,9 +174,9 @@
           <input type="number" bind:value={defaultRaw} id="input-default" />
         {:else if type === 'boolean'}
           <select id="input-default" bind:value={defaultRaw}>
-            <option value="">なし</option>
-            <option value="true">はい</option>
-            <option value="false">いいえ</option>
+            <option value="">{$t(`common.input-type-boolean-none`)}</option>
+            <option value="true">{$t(`common.input-type-boolean-true`)}</option>
+            <option value="false">{$t(`common.input-type-boolean-false`)}</option>
           </select>
         {:else}
           <textarea bind:value={defaultRaw} id="input-default" rows={2} ></textarea>

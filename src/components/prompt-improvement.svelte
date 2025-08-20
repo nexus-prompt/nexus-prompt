@@ -1,10 +1,12 @@
 <script lang="ts">
   import type { ModelInfo } from '../types';
-  import { appData, snapshotData, showToast, viewContext } from '../stores';
+  import { appData, snapshotData, showToast } from '../stores';
   import { onMount, onDestroy } from 'svelte';
   import { writable } from 'svelte/store';
   import { autosize } from '../actions/autosize';
   import { copyToClipboard } from '../utils/copy-to-clipboard';
+  import { viewContext } from '../stores';
+  import { scrollToBottom } from '../actions/window';
 
   // Event handler, Props
   let { switchTab, selectedPromptIdFromParent } = $props();
@@ -66,6 +68,9 @@
         resultArea.set(result);
         snapshotData?.update(current => current ? { ...current, userPrompt: $userPrompt, selectedPromptId: $selectedPromptId, resultArea: result, selectedModelId: $selectedModelId } : current);
         showToast('プロンプトの改善が完了しました', 'success');
+        if ($viewContext === 'sidepanel') {
+          scrollToBottom();
+        }
       } else {
         console.warn(response.error);
         if (response.error.includes('APIキーが設定されていません')) {
@@ -190,13 +195,13 @@
           data-testid="user-prompt-input"
           bind:value={$userPrompt}
           disabled={isLoading}
-          use:autosize={{ maxRows: 20, minRows: 10, fixedRows: $viewContext === 'popup' ? 13 : undefined }}
+          use:autosize={{ fixedRows: 13 }}
           oninput={handleInput}
           placeholder="改善したいプロンプトを入力してください">
         </textarea>
       </div>
       <div class="form-group">
-        <label for="promptSelect">登録済みLLMプロンプト</label>
+        <label for="promptSelect">改善に使用する登録済みLLMプロンプト</label>
         <select 
           id="promptSelect" 
           data-testid="prompt-select"
@@ -225,17 +230,13 @@
           data-testid="result-area"
           class="result-area"
           bind:value={$resultArea}
-          use:autosize={{ maxRows: 20, minRows: 7, fixedRows: $viewContext === 'popup' ? 17 : undefined }}
+          use:autosize={{ fixedRows: 17 }}
           oninput={handleInput}
           placeholder="改善結果がここに表示されます">
         </textarea>
       </div>
 
       <div class="input-button-group">
-        <a href="https://www.buymeacoffee.com/nexus.prompt" target="_blank" rel="noopener noreferrer" title="この拡張機能の開発をサポート">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
-          <span>Support this extension</span>
-        </a>
         <button id="copyButton" class="secondary-button" onclick={copyResult} disabled={!resultArea}>コピー</button>
       </div>
     </div>
@@ -305,15 +306,4 @@
   .reset-button:disabled:hover {
     @apply bg-transparent text-red-500;
   }
-
-  .right-panel .input-button-group { 
-    @apply flex items-center justify-between text-sm w-full;
-  }
-  .right-panel .input-button-group a { 
-    @apply flex items-center gap-1.5 text-gray-500 no-underline transition-colors;
-  }
-  .right-panel .input-button-group a:hover { 
-    @apply text-blue-500;
-  }
-  .right-panel .input-button-group svg { @apply w-4 h-4; }
 </style>

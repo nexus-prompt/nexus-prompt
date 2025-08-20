@@ -5,9 +5,9 @@
   import { copyToClipboard } from '../utils/copy-to-clipboard';
   import { caluculateComplexity } from '../utils/input-complexity-calculator';
   import type { Prompt } from '../types';
-  import PromptPlaygroundInput from './prompt-playgroun-input.svelte';
   import { hasRemainingPlaceholders } from '../promptops/dsl/prompt/linter';
   import { buildPrompt } from '../promptops/dsl/prompt/builder';
+  import PromptPlaygroundInput from './prompt-playground-input.svelte';
 
   // constants
   const ALIGN_METHOD_FULL = 'full' as const;
@@ -37,9 +37,13 @@
   let isLoading = $state(false);
   let userPrompt = $state('');
   let recordInputs = $state<Record<string, unknown>>({});
+  let invalidInputs = $state<Record<string, boolean>>({});
 
   function handleChildInputChange(name: string, value: string): void {
     recordInputs = { ...recordInputs, [name]: value };
+    if (invalidInputs[name]) {
+      invalidInputs = { ...invalidInputs, [name]: false };
+    }
   }
 
   const selectedPrompt = $derived.by((): Prompt | undefined => {
@@ -103,6 +107,7 @@
       }
     });
     recordInputs = nextInputs;
+    invalidInputs = {};
   }
 
   function copyUserPrompt(): void {
@@ -117,15 +122,14 @@
   function buildUserPrompt(): void {
     if (!selectedPrompt) return;
     let hasError = false;
+    const nextInvalid: Record<string, boolean> = {};
     selectedPrompt.content.inputs.forEach((input) => {
-      if (input.required && !recordInputs[input.name]) {
-        const element = document.getElementById(input.name);
-        if (element) {
-          element.classList.add('border-red-500');
-          hasError = true;
-        }
-      }
+      const val = recordInputs[input.name];
+      const invalid = Boolean(input.required && (val === '' || val === undefined || val === null));
+      nextInvalid[input.name] = invalid;
+      if (invalid) hasError = true;
     });
+    invalidInputs = nextInvalid;
     if (hasError) {
       showToast('必須項目が入力されていません', 'error');
       return 
@@ -197,6 +201,7 @@
               {inputStringRows} 
               value={recordInputs[input.name] as string}
               onchange={handleChildInputChange}
+              isInvalid={invalidInputs[input.name] === true}
             />
           {/each}
         </div>
@@ -210,6 +215,7 @@
               {inputStringRows} 
               value={recordInputs[input.name] as string}
               onchange={handleChildInputChange}
+              isInvalid={invalidInputs[input.name] === true}
             />
           {/each}
         </div>
@@ -218,6 +224,11 @@
   </div>
   <div class="fotter-layout">
     <div class="input-button-group {INPUT_BUTTON_GROUP_CLASS}">
+      <a href="https://www.buymeacoffee.com/nexus.prompt" target="_blank" rel="noopener noreferrer" title="この拡張機能の開発をサポート">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>
+        <span>Support this extension</span>
+      </a>
+
       {#if alignMethod === ALIGN_METHOD_FULL}
         <button id="copyButton" class="secondary-button" onclick={copyUserPrompt}>コピー</button>
       {:else}
@@ -266,4 +277,15 @@
       @apply w-full;
     }
   } 
+
+  .input-button-group { 
+    @apply flex items-center justify-between text-sm w-full;
+  }
+  .input-button-group a { 
+    @apply flex items-center gap-1.5 text-gray-500 no-underline transition-colors;
+  }
+  .input-button-group a:hover { 
+    @apply text-blue-500;
+  }
+  .input-button-group svg { @apply w-4 h-4; }
 </style>
