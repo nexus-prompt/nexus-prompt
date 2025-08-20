@@ -8,6 +8,8 @@
   import { showToast, entitlements } from '../../stores';
   import BasicInput from './inputs/basic.svelte';
   import InputModal from './input-modal.svelte';
+  import { t } from '../../lib/translations/translations';
+  import type { PromptInputType } from '../../promptops/dsl/prompt/renderer';
 
   // Local state
   let promptViewModel = $state<PromptViewModel>({
@@ -29,11 +31,7 @@
   const MAX_PROMPT_CONTENT_LENGTH = 10000;
   const MAX_PROMPT_NAME_LENGTH = 200;
   const MAX_PROMPT_COUNT = 20;
-  const INPUT_TYPES = [
-    { type: 'string' as const, typeLabel: 'テキスト' },
-    { type: 'number' as const, typeLabel: '数値' },
-    { type: 'boolean' as const, typeLabel: 'はい・いいえ' },
-  ];
+  const INPUT_TYPES = [ 'string', 'number', 'boolean' ] as PromptInputType[];
 
   function openAddInputModal(_e: MouseEvent, defaultInput?: Partial<PromptInputView>) {
     if (showInputModal) return;
@@ -78,15 +76,6 @@
     }
     showInputModal = false;
     initialInput = undefined;
-  }
-
-  function getTypeLabel(t: string, short: boolean = false): string {
-    const label = INPUT_TYPES.find((it) => it.type === t)?.typeLabel ?? t;
-    return short ? label.substring(0, 1) : label;
-  }
-
-  function getInputChipTitle(inp: PromptInputView): string {
-    return `差し込み定義（${getTypeLabel(inp.type)}：${inp.name}）を編集`;
   }
 
   function onClickInputChip(index: number) {
@@ -270,8 +259,15 @@
       {#if (promptViewModel.inputs?.length ?? 0) > 0}
         <div class="input-chips">
           {#each promptViewModel.inputs as inp, i}
-            <button type="button" class="input-chip" onclick={() => onClickInputChip(i)} title={getInputChipTitle(inp)} aria-label={getInputChipTitle(inp)}>
-              {getTypeLabel(inp.type, true)}
+            <button 
+              type="button" 
+              class="input-chip" 
+              onclick={() => onClickInputChip(i)} 
+              title={`差し込み定義（${$t(`common.input-type-${inp.type}-name`)}：${inp.name}）を編集`} 
+              aria-label={`差し込み定義（${$t(`common.input-type-${inp.type}-name`)}：${inp.name}）を編集`}
+              data-testid={`input-chip-${inp.name}`}
+            >
+              {$t(`common.input-type-${inp.type}-name`)}
             </button>
           {/each}
         </div>
@@ -279,7 +275,11 @@
     </div>
     <section class="inputs">
       {#each INPUT_TYPES as type}
-        <BasicInput editorRef={editorRef} type={type.type} typeLabel={type.typeLabel} />
+        <BasicInput 
+          editorRef={editorRef} 
+          type={type} 
+          typeLabel={$t(`common.input-type-${type}-name`)} 
+        />
       {/each}
     </section>
     <PromptEditor
