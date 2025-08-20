@@ -2,7 +2,7 @@
   import { storageService } from '../services/storage';
   import { showToast } from '../stores';
   import Frameworks from './frameworks.svelte';
-  import { useForwardToDetail, useForwardToScreen } from '../actions/navigation';
+  import { useForwardToScreen } from '../actions/navigation';
   import DataManagement from './data-management.svelte';
 
   // Local state
@@ -65,12 +65,6 @@
       isLoading = false;
     }
   }
-
-  // データ管理は専用画面に移動
-
-  useForwardToDetail((_id: string | null) => {
-    view = 'frameworks';
-  });
 
   // 履歴の「進む」で settings配下のサブ画面を復元
   useForwardToScreen((screen: string) => {

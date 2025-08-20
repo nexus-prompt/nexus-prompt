@@ -157,7 +157,7 @@ describe('FileImportExportService', () => {
 
       const arrayBuffer = await readZipFixtureOrGenerate();
 
-      await importExportService.import(arrayBuffer);
+      await importExportService.import(arrayBuffer, 'free');
 
       // saveAppDataが呼ばれることを確認（詳細はE2Eで担保）
       expect(mockSaveAppData).toHaveBeenCalledTimes(1);
@@ -172,7 +172,7 @@ describe('FileImportExportService', () => {
 
       const arrayBuffer = await readZipFixtureOrGenerate();
 
-      await importExportService.import(arrayBuffer);
+      await importExportService.import(arrayBuffer, 'free');
 
       expect(mockSaveSnapshot).toHaveBeenCalledTimes(1);
       const savedSnapshot = mockSaveSnapshot.mock.calls[0][0] as SnapshotData;
@@ -184,7 +184,7 @@ describe('FileImportExportService', () => {
 
       const arrayBuffer = await readZipFixtureOrGenerate();
 
-      await importExportService.import(arrayBuffer);
+      await importExportService.import(arrayBuffer, 'free');
 
       expect(mockSaveSnapshot).not.toHaveBeenCalled();
     });
@@ -193,7 +193,18 @@ describe('FileImportExportService', () => {
       const invalidBytes = new TextEncoder().encode('{ invalid json }');
       const arrayBuffer = invalidBytes.buffer.slice(invalidBytes.byteOffset, invalidBytes.byteOffset + invalidBytes.byteLength);
 
-      await expect(importExportService.import(arrayBuffer)).rejects.toThrow();
+      await expect(importExportService.import(arrayBuffer, 'free')).rejects.toThrow();
     });
+
+    // it('無料プランで20個より多くのプロンプトをインポートしようとした場合、エラーをスローする', async () => {
+    //   const currentAppData = createMockAppData({
+    //     prompts: Array.from({ length: 21 }, (_, i) => createMockPrompt({ id: `prompt-${i + 1}` })),
+    //   });
+    //   mockGetAppData.mockResolvedValue(currentAppData);
+
+    //   const arrayBuffer = await readZipFixtureOrGenerate();
+
+    //   await expect(importExportService.import(arrayBuffer, 'free')).rejects.toThrow();
+    // });
   });
 }); 
