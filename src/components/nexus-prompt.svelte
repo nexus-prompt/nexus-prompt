@@ -7,7 +7,6 @@
   import PromptImprovement from './prompt-improvement.svelte';
   import PromptPlayground from './prompt-playground.svelte';
   import { get } from 'svelte/store';
-  import { loadTranslations } from '../lib/translations/translations';
   import { appData, snapshotData, initializeStores, viewContext, isInitialized, toast } from '../stores';
   import '../chrome-mock'; // 開発環境用のChrome APIモック
 
@@ -31,7 +30,6 @@
   };
 
   onMount(() => {
-    loadTranslations("ja", "/"); 
     initializeStores();
 
     chrome.storage.onChanged.addListener(handleStorageChange);
