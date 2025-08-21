@@ -29,15 +29,15 @@
 
   // 親の onMount 後に viewContext が設定されるため、変化を一度だけ拾う
   $effect(() => {
-    if ($isInitialized && !handledSidepanelInit && $viewContext === 'sidepanel' && $snapshotData?.editingTarget.type === 'prompt') {
+    if ($isInitialized && !handledSidepanelInit && $viewContext === 'sidepanel' && $snapshotData?.editPrompt?.id) {
       handledSidepanelInit = true;
-      editingPromptId = $snapshotData.editingTarget.id || null;
+      editingPromptId = $snapshotData.editPrompt.id || null;
       view = 'edit';
       (async () => {
         try {
-          await storageService.clearEditingTarget();
+          await storageService.saveEditPrompt(null);
         } finally {
-          snapshotData.update(current => current ? { ...current, editingTarget: { type: null, id: '' } } : null);
+          snapshotData.update(current => current ? { ...current, editPrompt: { id: null } } : null);
         }
       })();
     }
@@ -57,11 +57,7 @@
 
     try {
       await storageService.saveActiveTab('prompts');
-      if (targetId === null) {
-        await storageService.saveEditingTarget('prompt', '');
-      } else {
-        await storageService.saveEditingTarget('prompt', targetId);
-      }
+      await storageService.saveEditPrompt(targetId);
 
       const currentWindow = await chrome.windows.getCurrent();
       await chrome.sidePanel.open({ windowId: currentWindow.id! });

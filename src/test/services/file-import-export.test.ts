@@ -167,7 +167,7 @@ describe('FileImportExportService', () => {
     });
 
     it('ドラフトデータが存在する場合、selectedPromptIdをクリアする', async () => {
-      const currentSnapshot = createMockSnapshotData({ selectedPromptId: 'existing-prompt-id' });
+      const currentSnapshot = createMockSnapshotData({ editPrompt: { id: 'existing-prompt-id' } });
       mockGetSnapshot.mockResolvedValue(currentSnapshot);
 
       const arrayBuffer = await readZipFixtureOrGenerate();
@@ -176,7 +176,7 @@ describe('FileImportExportService', () => {
 
       expect(mockSaveSnapshot).toHaveBeenCalledTimes(1);
       const savedSnapshot = mockSaveSnapshot.mock.calls[0][0] as SnapshotData;
-      expect(savedSnapshot.selectedPromptId).toBe('');
+      expect(savedSnapshot.editPrompt.id).toBe(null);
     });
 
     it('スナップショットデータが存在しない場合、saveSnapshotは呼ばれない', async () => {

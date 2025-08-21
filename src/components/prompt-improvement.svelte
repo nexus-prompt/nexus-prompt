@@ -12,10 +12,10 @@
   let { switchTab, selectedPromptIdFromParent } = $props();
 
   // Local state
-  const userPrompt = writable($snapshotData?.userPrompt || '');
+  const userPrompt = writable($snapshotData?.promptImprovement?.userPrompt || '');
   const selectedPromptId = writable(selectedPromptIdFromParent);
-  const selectedModelId = writable($snapshotData?.selectedModelId || '');
-  const resultArea = writable($snapshotData?.resultArea || '');
+  const selectedModelId = writable($snapshotData?.promptImprovement?.selectedModelId || '');
+  const resultArea = writable($snapshotData?.promptImprovement?.resultArea || '');
   let isLoading = $state(false);
   let isThrottled = $state(false);
   let hasPendingChanges = $state(false);

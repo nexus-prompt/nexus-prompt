@@ -244,7 +244,7 @@ export class FileImportExportService {
 
     const snapshot = await this.storage.getSnapshot();
     if (snapshot) {
-      snapshot.selectedPromptId = '';
+      snapshot.editPrompt = { id: null };
       await this.storage.saveSnapshot(snapshot);
     }
     return;
