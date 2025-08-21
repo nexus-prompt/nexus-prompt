@@ -117,7 +117,7 @@
     <!-- プロンプト改善 -->
     {#if $snapshotData.activeTab === 'prompt-improvement'}
     <div id="main" class="tab-content active">
-      <PromptImprovement switchTab={switchTab} selectedPromptIdFromParent={$snapshotData?.selectedPromptId || ''} />
+      <PromptImprovement switchTab={switchTab} selectedPromptIdFromParent={$snapshotData?.editPrompt.id || ''} />
     </div>
     {/if}
 
