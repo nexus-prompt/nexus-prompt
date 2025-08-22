@@ -123,10 +123,12 @@
   const saveSnapshot = async () => {
     snapshotData?.update(current => current ? {
       ...current,
-      userPrompt: $userPrompt,
-      selectedPromptId: $selectedPromptId,
-      resultArea: $resultArea,
-      selectedModelId: $selectedModelId
+      promptImprovement: {
+        userPrompt: $userPrompt,
+        selectedPromptId: $selectedPromptId,
+        resultArea: $resultArea,
+        selectedModelId: $selectedModelId
+      }
     } : current);
     hasPendingChanges = false;
   };
