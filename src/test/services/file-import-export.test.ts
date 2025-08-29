@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { FileImportExportService } from '../../services/file-import-export';
 import type { AppData, SnapshotData } from '../../types';
 import { createMockAppData, createMockFramework, createMockPrompt, createMockSnapshotData } from '../test-utils/factories';
-import { readFile } from 'fs/promises';
 import JSZip from 'jszip';
+import { v6 as uuidv6 } from 'uuid';
+import { webcrypto as nodeWebCrypto } from 'crypto';
+import { dumpYamlStable } from '../../promptops/dsl/serializer';
 
 // StorageServiceのモック関数を作成
 const mockGetAppData = vi.hoisted(() => vi.fn());
@@ -27,10 +29,14 @@ vi.mock('../../services/storage', () => ({
   },
 }));
 
-// crypto.randomUUID のモック
+// crypto のセットアップ: uuid が利用する getRandomValues を提供
 const mockRandomUUID = vi.hoisted(() => vi.fn());
 Object.defineProperty(globalThis, 'crypto', {
   value: {
+    getRandomValues: (<T extends ArrayBufferView>(arr: T): T =>
+      nodeWebCrypto.getRandomValues(arr as unknown as any) as unknown as T
+    ),
+    subtle: nodeWebCrypto.subtle,
     randomUUID: mockRandomUUID,
   },
   writable: true,
@@ -133,10 +139,35 @@ describe('FileImportExportService', () => {
   });
 
   describe('import', () => {
-    const zipPath = 'src/test/data/nexus-prompt-export-2025-08-11.zip';
+    // ZIPを生成（frameworks/ と prompts/ のフロントマターJSONのみ）
+    const zip = new JSZip();
+    const frameworkId = uuidv6();
+    const fmFramework = {
+      version: 2,
+      id: frameworkId,
+      content: 'インポート用フレームワーク内容',
+      name: 'インポートされたフレームワーク',
+      slug: 'test-framework',
+    } as Record<string, unknown>;
+    const fmPrompt = {
+      version: 2,
+      id: uuidv6(),
+      name: 'インポートされたプロンプト',
+      template: 'テンプレート',
+      inputs: [],
+    } as Record<string, unknown>;
+    const buildFrontMatterMd = (body: string, data: Record<string, unknown>): string => {
+      const yaml = dumpYamlStable(data);
+      return `---\n${yaml}---\n${body ?? ''}`;
+    };
+    const { content: frameworkContent, ...frameworkFrontMatter } = fmFramework;
+    zip.file(`framework-${fmFramework.id}.md`, buildFrontMatterMd(frameworkContent as string, frameworkFrontMatter));
+    const { content: promptTemplate, ...promptFrontMatter } = fmPrompt;
+    zip.file(`prompt-${fmPrompt.id}.md`, buildFrontMatterMd(promptTemplate as string, promptFrontMatter));
     const toArrayBuffer = (u8: Uint8Array) => u8.buffer.slice(u8.byteOffset, u8.byteOffset + u8.byteLength);
+
     const readZipFixtureOrGenerate = async (): Promise<ArrayBuffer> => {
-      let bytes = await readFile(zipPath);
+      let bytes = await zip.generateAsync({ type: 'uint8array' });
       let ok = true;
       try {
         await JSZip.loadAsync(bytes);
@@ -155,7 +186,7 @@ describe('FileImportExportService', () => {
       const currentAppData = createMockAppData({
         settings: {
           ...createMockAppData().settings,
-          defaultFrameworkId: '50715f31-70bc-40cb-925c-27198dc3e82c',
+          defaultFrameworkId: frameworkId,
         },
       });
       mockGetAppData.mockResolvedValue(currentAppData);
