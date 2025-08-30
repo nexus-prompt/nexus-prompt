@@ -5,9 +5,9 @@
   import { t } from '../../lib/translations/translations';
 
   // Props
-  let { inputTypes, initial, inputs, editing = false }: { inputTypes: PromptInputType[], initial?: Partial<PromptInputView>, inputs?: PromptInputView[], editing?: boolean } = $props();
+  let { inputTypes, initial, inputs, editing = false, editingIndex = $bindable(), onMovePrev, onMoveNext }: { inputTypes: PromptInputType[], initial?: Partial<PromptInputView>, inputs?: PromptInputView[], editing?: boolean, editingIndex?: number | null, onMovePrev?: () => void, onMoveNext?: () => void } = $props();
 
-  const dispatch = createEventDispatcher<{ save: PromptInputView; cancel: void; delete: void }>();
+  const dispatch = createEventDispatcher<{ save: PromptInputView; cancel: void; delete: void; movePrev: void; moveNext: void }>();
 
   // Local state (draft)
   const rename = function(name: string, inputs: PromptInputView[], editing: boolean) {
@@ -65,6 +65,12 @@
 
   function onDelete() {
     dispatch('delete');
+  }
+  function onClickMovePrev() {
+    if (typeof onMovePrev === 'function') onMovePrev(); else dispatch('movePrev');
+  }
+  function onClickMoveNext() {
+    if (typeof onMoveNext === 'function') onMoveNext(); else dispatch('moveNext');
   }
 
   function handleOverlayClick(e: MouseEvent) {
@@ -125,7 +131,27 @@
 <div class="modal-overlay" role="presentation" onclick={handleOverlayClick} onmousedown={handleOverlayMouseDown}>
   <div bind:this={modalEl} class="modal" role="dialog" aria-modal="true" aria-labelledby="input-modal-title" tabindex="-1" onmousedown={handleModalMouseDown} onkeydown={handleModalKeydown}>
     <div class="modal-header">
-      <div class="modal-title" id="input-modal-title">差し込み定義を{editing ? '編集' : '追加'}</div>
+      <div class="modal-title" id="input-modal-title">
+        差し込み定義を{editing ? '編集' : '追加'}{editing && editingIndex != null ? ` (${editingIndex + 1}番目)` : ''}
+        {#if editing}
+          <span class="inline-actions">
+            <button
+              class="inline-action-button"
+              type="button"
+              onclick={onClickMovePrev}
+              disabled={editingIndex == null || (inputs && editingIndex !== null ? editingIndex <= 0 : true)}
+              title="前に移動"
+            >前に移動</button>
+            <button
+              class="inline-action-button"
+              type="button"
+              onclick={onClickMoveNext}
+              disabled={editingIndex == null || (inputs && editingIndex !== null ? editingIndex >= (inputs?.length ?? 1) - 1 : true)}
+              title="次に移動"
+            >次に移動</button>
+          </span>
+        {/if}
+      </div>
       {#if editing}
         <button class="delete-button" type="button" onclick={onDelete}>削除</button>
       {/if}
@@ -219,6 +245,25 @@
   }
   .modal-title {
     font-weight: 600;
+  }
+  .inline-actions { display: inline-flex; gap: 8px; margin-left: 8px; }
+  .inline-action-button {
+    appearance: none;
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+    font-size: 12px;
+    line-height: 1.2;
+    padding: 2px 6px;
+    border-radius: 4px;
+    cursor: pointer;
+  }
+  .inline-action-button:hover:not(:disabled) {
+    background: rgba(0,0,0,0.04);
+  }
+  .inline-action-button:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
   .modal-body {
     padding: 12px 16px;
