@@ -91,10 +91,8 @@
   }
 
   function handleTypeChange(e: Event) {
-    const value = (e.target as HTMLSelectElement).value as PromptInputType;
-    if (value === (initial?.type as PromptInputType | undefined)) {
-      name = (initial?.name ?? '') as string;
-    } else {
+    if (!editing && /^target_(string|number|boolean)\d*$/.test(name)) {
+      const value = (e.target as HTMLSelectElement).value as PromptInputType;
       const next = rename(`target_${value}`, inputs ?? [], false);
       name = next;
     }
@@ -130,7 +128,7 @@
 
 <div class="modal-overlay" role="presentation" onclick={handleOverlayClick} onmousedown={handleOverlayMouseDown}>
   <div bind:this={modalEl} class="modal" role="dialog" aria-modal="true" aria-labelledby="input-modal-title" tabindex="-1" onmousedown={handleModalMouseDown} onkeydown={handleModalKeydown}>
-    <div class="modal-header">
+    <div class="modal-header" data-testid="input-modal-header">
       <div class="modal-title" id="input-modal-title">
         差し込み定義を{editing ? '編集' : '追加'}{editing && editingIndex != null ? ` (${editingIndex + 1}番目)` : ''}
         {#if editing}
@@ -160,14 +158,14 @@
     <div class="modal-body">
       <div class="form-group">
         <label class="field-label" for="input-type">タイプ</label>
-        <select bind:value={type} id="input-type" onchange={handleTypeChange}>
+        <select bind:value={type} id="input-type" data-testid="input-type" onchange={handleTypeChange}>
           {#each inputTypes as it}
             <option value={it}>{$t(`common.input-type-${it}-name`)}</option>
           {/each}
         </select>
       </div>
       <div class="form-group">
-        <label class="field-label" for="input-name">名前</label>
+        <label class="field-label" for="input-name" data-testid="input-name">名前</label>
         <input
           type="text"
           id="input-name"
@@ -183,29 +181,29 @@
       </div>
       <div class="form-group">
         <label class="field-label" for="input-required">必須</label>
-        <select id="input-required" bind:value={required}>
+        <select id="input-required" data-testid="input-required" bind:value={required}>
           <option value="true">はい</option>
           <option value="false">いいえ</option>
         </select>
       </div>
       <div class="form-group">
         <label class="field-label" for="input-description">説明</label>
-        <textarea bind:value={description} placeholder="任意の説明" id="input-description" rows={2} ></textarea>
+        <textarea bind:value={description} placeholder="任意の説明" id="input-description" data-testid="input-description" rows={2} ></textarea>
       </div>
       <div class="form-group">
         <label class="field-label" for="input-default">デフォルト値</label>
         {#if type === 'string'}
-          <textarea bind:value={defaultRaw} id="input-default" rows={2} ></textarea>
+          <textarea bind:value={defaultRaw} id="input-default" data-testid="input-default" rows={2} ></textarea>
         {:else if type === 'number'}
-          <input type="number" bind:value={defaultRaw} id="input-default" />
+          <input type="number" bind:value={defaultRaw} id="input-default" data-testid="input-default"/>
         {:else if type === 'boolean'}
-          <select id="input-default" bind:value={defaultRaw}>
+          <select id="input-default" data-testid="input-default" bind:value={defaultRaw}>
             <option value="">{$t(`common.input-type-boolean-none`)}</option>
             <option value="true">{$t(`common.input-type-boolean-true`)}</option>
             <option value="false">{$t(`common.input-type-boolean-false`)}</option>
           </select>
         {:else}
-          <textarea bind:value={defaultRaw} id="input-default" rows={2} ></textarea>
+          <textarea bind:value={defaultRaw} id="input-default" data-testid="input-default" rows={2} ></textarea>
         {/if}
       </div>
     </div>
