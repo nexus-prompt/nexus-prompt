@@ -142,7 +142,7 @@
         <div class="prompt-item js-prompt-item" data-testid="prompt-item" in:fly={{ y: 20, duration: 250 }} animate:flip>
           <div class="prompt-info">
             <h4>{prompt.content.name}</h4>
-            <p>{prompt.content.template.substring(0, 45)}...</p>
+            <p>{prompt.content.template.substring(0, 43)}...</p>
           </div>
           <div class="prompt-actions">
             <button class="sort-button" aria-label="上へ" title="上へ" onclick={() => movePrompt(prompt.id, 'up')} disabled={promptsOrdered[0]?.id === prompt.id}>↑</button>
