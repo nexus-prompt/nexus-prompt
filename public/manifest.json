@@ -25,6 +25,11 @@
     "service_worker": "background.js",
     "type": "module"
   },
+  "commands": {
+    "open-side-panel": {
+      "description": "サイドパネルを開く"
+    }
+  },
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   },
