@@ -4,10 +4,6 @@ LLMプロンプトの作成・改善を支援する Chrome 拡張機能です。
 
 このリポジトリは、Chrome 拡張機能「Nexus Prompt」のオープンソース実装です。登録したテンプレート（LLMプロンプト）とプロンプト設計フレームワークを使い、選択した LLM でプロンプトの自動改善が行えます。ポップアップ/サイドパネルで動作し、データのエクスポート/インポートにも対応しています。
 
-## インストール
-
-[<img src="./docs/chrome-web-store.png" alt="Chromeウェブストアからインストール" width="200">](https://chromewebstore.google.com/detail/nexus-prompt/epoolhelnffbjmkhleekobpgbjfnhaej)
-
 ## デモ
 <img src="./docs/demo.gif" alt="Demo GIF showing the plugin in action" width="600">
 
